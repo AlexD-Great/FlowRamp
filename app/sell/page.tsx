@@ -1,0 +1,171 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { SellForm } from "@/components/off-ramp/sell-form"
+import { DepositInstructions } from "@/components/off-ramp/deposit-instructions"
+import { WithdrawalStatus } from "@/components/off-ramp/withdrawal-status"
+import { WithdrawalHistory } from "@/components/off-ramp/withdrawal-history"
+import type { OffRampRequest } from "@/lib/types/database"
+
+type ViewState = "form" | "deposit" | "status"
+
+export default function SellPage() {
+  const [viewState, setViewState] = useState<ViewState>("form")
+  const [currentRequest, setCurrentRequest] = useState<OffRampRequest | null>(null)
+  const [requests, setRequests] = useState<OffRampRequest[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Load withdrawal history
+  useEffect(() => {
+    loadRequests()
+  }, [])
+
+  // Poll for request updates when processing
+  useEffect(() => {
+    if (
+      currentRequest &&
+      (currentRequest.status === "pending" ||
+        currentRequest.status === "funded" ||
+        currentRequest.status === "processing")
+    ) {
+      const interval = setInterval(() => {
+        pollRequestStatus(currentRequest.id)
+      }, 5000)
+
+      return () => clearInterval(interval)
+    }
+  }, [currentRequest])
+
+  const loadRequests = async () => {
+    try {
+      const response = await fetch("/api/offramp/requests")
+      if (response.ok) {
+        const data = await response.json()
+        setRequests(data.requests || [])
+      }
+    } catch (error) {
+      console.error("[v0] Failed to load requests:", error)
+    }
+  }
+
+  const pollRequestStatus = async (requestId: string) => {
+    try {
+      const response = await fetch(`/api/offramp/request/${requestId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setCurrentRequest(data)
+
+        // Reload history when completed
+        if (data.status === "completed" || data.status === "failed") {
+          loadRequests()
+        }
+      }
+    } catch (error) {
+      console.error("[v0] Failed to poll request:", error)
+    }
+  }
+
+  const handleSubmit = async (formData: {
+    walletAddress: string
+    amount: number
+    stablecoin: string
+    payoutMethod: "bank_transfer" | "mobile_money"
+    payoutDetails: any
+  }) => {
+    setIsLoading(true)
+
+    try {
+      const response = await fetch("/api/offramp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to create request")
+      }
+
+      const data = await response.json()
+
+      // Fetch the created request
+      const requestResponse = await fetch(`/api/offramp/request/${data.requestId}`)
+      if (requestResponse.ok) {
+        const requestData = await requestResponse.json()
+        setCurrentRequest(requestData)
+        setViewState("deposit")
+      }
+    } catch (error) {
+      console.error("[v0] Failed to create request:", error)
+      alert("Failed to create withdrawal request. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleReset = () => {
+    setCurrentRequest(null)
+    setViewState("form")
+    loadRequests()
+  }
+
+  const handleViewStatus = () => {
+    setViewState("status")
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <div className="container mx-auto px-4 py-12">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold mb-4 text-balance">Sell Flow Stablecoins</h1>
+          <p className="text-lg text-muted-foreground text-balance max-w-2xl mx-auto">
+            Convert your Flow stablecoins to Nigerian Naira and receive payment directly to your account
+          </p>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex flex-col items-center gap-8">
+          {viewState === "form" && <SellForm onSubmit={handleSubmit} isLoading={isLoading} />}
+
+          {viewState === "deposit" && currentRequest && (
+            <DepositInstructions
+              requestId={currentRequest.id}
+              depositAddress={currentRequest.deposit_address}
+              memo={currentRequest.memo}
+              amount={currentRequest.amount}
+              stablecoin={currentRequest.stablecoin}
+              onCancel={handleReset}
+            />
+          )}
+
+          {viewState === "status" && currentRequest && (
+            <WithdrawalStatus
+              status={currentRequest.status}
+              requestId={currentRequest.id}
+              amount={currentRequest.amount}
+              stablecoin={currentRequest.stablecoin}
+              depositAddress={currentRequest.deposit_address}
+              memo={currentRequest.memo}
+              payoutDetails={currentRequest.payoutDetails}
+              onReset={handleReset}
+            />
+          )}
+
+          {/* Show deposit instructions button when in status view */}
+          {viewState === "status" && currentRequest?.status === "pending" && (
+            <button onClick={() => setViewState("deposit")} className="text-sm text-primary hover:underline">
+              View Deposit Instructions
+            </button>
+          )}
+
+          {/* Withdrawal History */}
+          {requests.length > 0 && viewState === "form" && (
+            <div className="w-full max-w-2xl">
+              <WithdrawalHistory requests={requests} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
