@@ -25,49 +25,51 @@ export interface OffRampActionParams {
   requestId: string
 }
 
+import { FCLClient } from "@/lib/flow/fcl-client"
+import * as t from "@onflow/types"
+import {
+  MINT_FUSD_SCRIPT,
+  TRANSFER_FUSD_SCRIPT,
+  GET_FUSD_BALANCE_SCRIPT,
+} from "@/lib/flow/cadence-scripts"
+import { sign } from "@/lib/crypto/ecdsa"
+
+// ... existing code ...
+
 export class ForteActionsService {
+  private fcl: FCLClient
   private serviceWalletAddress: string
 
   constructor(serviceWalletAddress: string) {
+    this.fcl = FCLClient.getInstance()
     this.serviceWalletAddress = serviceWalletAddress
   }
 
-  // Generate backend signature for Action authorization
-  generateActionSignature(sessionId: string, timestamp: number): string {
-    // Mock implementation - in production, use proper cryptographic signing
-    // Should sign: hash(sessionId + timestamp + secret)
-    return `sig_${sessionId}_${timestamp}_${Math.random().toString(36).substr(2, 9)}`
-  }
+  // ... existing code ...
 
-  // Execute On-Ramp Action: mint/transfer stablecoins to user
   async executeOnRampAction(params: OnRampActionParams): Promise<ForteActionResult> {
-    console.log("[v0] Executing On-Ramp Forte Action:", params)
-
     try {
-      // Mock implementation - in production, call actual Forte Action
-      // This would interact with Flow blockchain via FCL or similar
+      const { beneficiary, amountUSD, sessionId } = params
+      const backendSig = await sign(sessionId)
 
-      // Simulate blockchain transaction
-      await this.simulateBlockchainDelay()
-
-      const txHash = `0xflow_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`
-      const receiptCID = `ipfs://Qm${Math.random().toString(36).substr(2, 44)}`
-      const actionId = `action_onramp_${Date.now()}`
-
-      // In production, this would:
-      // 1. Verify backendSig
-      // 2. Transfer/mint stablecoins from service wallet to beneficiary
-      // 3. Emit OnRampCompleted event
-      // 4. Return transaction hash and receipt
+      // In a real implementation, you might mint and then transfer,
+      // or just transfer from a pre-funded service wallet.
+      // Here, we'll assume a direct transfer for simplicity.
+      const txHash = await this.fcl.sendTransaction(
+        TRANSFER_FUSD_SCRIPT,
+        (arg, t) => [
+          arg(amountUSD.toFixed(8), t.UFix64),
+          arg(beneficiary, t.Address),
+        ],
+      )
 
       return {
         success: true,
         txHash,
-        receiptCID,
-        actionId,
+        actionId: `action_onramp_${Date.now()}`,
       }
     } catch (error) {
-      console.error("[v0] On-Ramp Action failed:", error)
+      console.error("On-Ramp Action failed:", error)
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
@@ -75,72 +77,27 @@ export class ForteActionsService {
     }
   }
 
-  // Execute Off-Ramp Action: burn/escrow stablecoins
   async executeOffRampAction(params: OffRampActionParams): Promise<ForteActionResult> {
-    console.log("[v0] Executing Off-Ramp Forte Action:", params)
+    // Off-ramp actions will depend on your specific smart contract logic
+    // (e.g., burning tokens, or transferring to an escrow).
+    // This is a placeholder for that logic.
+    console.log("Executing Off-Ramp Action:", params)
+    return {
+      success: true,
+      txHash: `0xflow_offramp_${Date.now()}`,
+    }
+  }
 
+  async getBalance(address: string): Promise<number> {
     try {
-      // Mock implementation - in production, call actual Forte Action
-      await this.simulateBlockchainDelay()
-
-      const txHash = `0xflow_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`
-      const receiptCID = `ipfs://Qm${Math.random().toString(36).substr(2, 44)}`
-      const actionId = `action_offramp_${Date.now()}`
-
-      // In production, this would:
-      // 1. Verify deposit with memo
-      // 2. Burn or escrow tokens
-      // 3. Emit OffRampInitiated event
-      // 4. Return transaction hash and receipt
-
-      return {
-        success: true,
-        txHash,
-        receiptCID,
-        actionId,
-      }
+      const balance = await this.fcl.executeScript(GET_FUSD_BALANCE_SCRIPT, (arg, t) => [
+        arg(address, t.Address),
+      ])
+      return parseFloat(balance)
     } catch (error) {
-      console.error("[v0] Off-Ramp Action failed:", error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      }
+      console.error(`Failed to get balance for ${address}:`, error)
+      return 0
     }
-  }
-
-  // Simulate deposit detection (in production, this would be a blockchain watcher)
-  async detectDeposit(
-    depositAddress: string,
-    memo: string,
-  ): Promise<{
-    detected: boolean
-    amount?: number
-    stablecoin?: string
-    txHash?: string
-  }> {
-    console.log("[v0] Checking for deposit:", { depositAddress, memo })
-
-    // Mock implementation - in production, watch blockchain for incoming transfers
-    // with matching memo to depositAddress
-
-    // Simulate random detection for demo
-    const detected = Math.random() > 0.3 // 70% chance of detection
-
-    if (detected) {
-      return {
-        detected: true,
-        amount: 100,
-        stablecoin: "fUSDC",
-        txHash: `0xflow_deposit_${Date.now()}`,
-      }
-    }
-
-    return { detected: false }
-  }
-
-  private async simulateBlockchainDelay(): Promise<void> {
-    // Simulate blockchain transaction time (2-5 seconds)
-    const delay = 2000 + Math.random() * 3000
-    await new Promise((resolve) => setTimeout(resolve, delay))
   }
 }
+
