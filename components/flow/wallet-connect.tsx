@@ -32,7 +32,7 @@ export function WalletConnect() {
       const authenticatedUser = await fcl.authenticate()
       setUser(authenticatedUser)
     } catch (error) {
-      console.error("[v0] Wallet connection failed:", error)
+      console.error("Wallet connection failed:", error)
       alert("Failed to connect wallet. Please try again.")
     } finally {
       setIsConnecting(false)
@@ -45,7 +45,7 @@ export function WalletConnect() {
       await fcl.unauthenticate()
       setUser(null)
     } catch (error) {
-      console.error("[v0] Wallet disconnection failed:", error)
+      console.error("Wallet disconnection failed:", error)
     }
   }
 
