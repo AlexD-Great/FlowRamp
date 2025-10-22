@@ -1,4 +1,4 @@
-import { AuthProvider } from "@/hooks/use-auth";
+import { AuthProvider } from "@/lib/firebase/auth";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
