@@ -5,20 +5,36 @@ import { SellForm } from "@/components/off-ramp/sell-form"
 import { DepositInstructions } from "@/components/off-ramp/deposit-instructions"
 import { WithdrawalStatus } from "@/components/off-ramp/withdrawal-status"
 import { WithdrawalHistory } from "@/components/off-ramp/withdrawal-history"
-import type { OffRampRequest } from "@/lib/types/database"
+import { useAuth } from "@/lib/firebase/auth" // Assuming you have a useAuth hook
+
+// Define the type for an off-ramp request
+interface OffRampRequest {
+  id: string;
+  status: "pending" | "funded" | "processing" | "completed" | "failed";
+  deposit_address: string;
+  memo: string;
+  amount: number;
+  stablecoin: string;
+  payoutDetails: any;
+  // Add other fields as necessary
+}
 
 type ViewState = "form" | "deposit" | "status"
 
 export default function SellPage() {
+  const { user } = useAuth(); // Get the authenticated user
   const [viewState, setViewState] = useState<ViewState>("form")
   const [currentRequest, setCurrentRequest] = useState<OffRampRequest | null>(null)
   const [requests, setRequests] = useState<OffRampRequest[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [jwt, setJwt] = useState<string | null>(null);
 
-  // Load withdrawal history
   useEffect(() => {
-    loadRequests()
-  }, [])
+    if (user) {
+      user.getIdToken().then(setJwt);
+      loadRequests();
+    }
+  }, [user]);
 
   // Poll for request updates when processing
   useEffect(() => {
@@ -36,9 +52,20 @@ export default function SellPage() {
     }
   }, [currentRequest])
 
+  const getAuthHeaders = () => {
+    if (!jwt) return {};
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    };
+  };
+
   const loadRequests = async () => {
+    if (!jwt) return;
     try {
-      const response = await fetch("/api/offramp/requests")
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/requests`, {
+        headers: getAuthHeaders(),
+      });
       if (response.ok) {
         const data = await response.json()
         setRequests(data.requests || [])
@@ -49,8 +76,11 @@ export default function SellPage() {
   }
 
   const pollRequestStatus = async (requestId: string) => {
+    if (!jwt) return;
     try {
-      const response = await fetch(`/api/offramp/request/${requestId}`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/request/${requestId}`, {
+        headers: getAuthHeaders(),
+      });
       if (response.ok) {
         const data = await response.json()
         setCurrentRequest(data)
@@ -72,12 +102,16 @@ export default function SellPage() {
     payoutMethod: "bank_transfer" | "mobile_money"
     payoutDetails: any
   }) => {
+    if (!jwt) {
+      alert("Please sign in to continue.");
+      return;
+    }
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/offramp/request", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/request`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(formData),
       })
 
@@ -88,7 +122,9 @@ export default function SellPage() {
       const data = await response.json()
 
       // Fetch the created request
-      const requestResponse = await fetch(`/api/offramp/request/${data.requestId}`)
+      const requestResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/request/${data.requestId}`, {
+        headers: getAuthHeaders(),
+      });
       if (requestResponse.ok) {
         const requestData = await requestResponse.json()
         setCurrentRequest(requestData)
