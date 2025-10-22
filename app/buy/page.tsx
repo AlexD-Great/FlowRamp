@@ -4,17 +4,32 @@ import { useState, useEffect } from "react"
 import { BuyForm } from "@/components/on-ramp/buy-form"
 import { PaymentStatus } from "@/components/on-ramp/payment-status"
 import { TransactionHistory } from "@/components/on-ramp/transaction-history"
-import type { OnRampSession } from "@/lib/types/database"
+import { useAuth } from "@/lib/firebase/auth" // Assuming you have a useAuth hook
+
+// Define the type for an on-ramp session
+interface OnRampSession {
+  id: string;
+  status: "created" | "paid" | "processing" | "completed" | "failed";
+  txHash?: string;
+  receiptCID?: string;
+  usdAmount: number;
+  stablecoin: string;
+  // Add other fields as necessary
+}
 
 export default function BuyPage() {
+  const { user } = useAuth(); // Get the authenticated user
   const [currentSession, setCurrentSession] = useState<OnRampSession | null>(null)
   const [sessions, setSessions] = useState<OnRampSession[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [jwt, setJwt] = useState<string | null>(null);
 
-  // Load transaction history
   useEffect(() => {
-    loadSessions()
-  }, [])
+    if (user) {
+      user.getIdToken().then(setJwt);
+      loadSessions();
+    }
+  }, [user]);
 
   // Poll for session updates when processing
   useEffect(() => {
@@ -27,9 +42,20 @@ export default function BuyPage() {
     }
   }, [currentSession])
 
+  const getAuthHeaders = () => {
+    if (!jwt) return {};
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    };
+  };
+
   const loadSessions = async () => {
+    if (!jwt) return;
     try {
-      const response = await fetch("/api/onramp/sessions")
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/onramp/sessions`, {
+        headers: getAuthHeaders(),
+      });
       if (response.ok) {
         const data = await response.json()
         setSessions(data.sessions || [])
@@ -40,8 +66,11 @@ export default function BuyPage() {
   }
 
   const pollSessionStatus = async (sessionId: string) => {
+    if (!jwt) return;
     try {
-      const response = await fetch(`/api/session/${sessionId}`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/onramp/session/${sessionId}`, {
+        headers: getAuthHeaders(),
+      });
       if (response.ok) {
         const data = await response.json()
         setCurrentSession(data)
@@ -62,12 +91,16 @@ export default function BuyPage() {
     fiatCurrency: string
     stablecoin: string
   }) => {
+    if (!jwt) {
+      alert("Please sign in to continue.");
+      return;
+    }
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/onramp/create-session", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/onramp/create-session`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           walletAddress: formData.walletAddress,
           fiatCurrency: formData.fiatCurrency,
@@ -90,7 +123,9 @@ export default function BuyPage() {
       }
 
       // Fetch the created session
-      const sessionResponse = await fetch(`/api/session/${data.sessionId}`)
+      const sessionResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/onramp/session/${data.sessionId}`, {
+        headers: getAuthHeaders(),
+      });
       if (sessionResponse.ok) {
         const sessionData = await sessionResponse.json()
         setCurrentSession(sessionData)
