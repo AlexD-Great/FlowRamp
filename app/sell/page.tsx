@@ -6,6 +6,8 @@ import { DepositInstructions } from "@/components/off-ramp/deposit-instructions"
 import { WithdrawalStatus } from "@/components/off-ramp/withdrawal-status"
 import { WithdrawalHistory } from "@/components/off-ramp/withdrawal-history"
 import { useAuth } from "@/lib/firebase/auth" // Assuming you have a useAuth hook
+import * as fcl from "@onflow/fcl";
+import * as t from "@onflow/types";
 
 // Define the type for an off-ramp request
 interface OffRampRequest {
@@ -148,6 +150,49 @@ export default function SellPage() {
     setViewState("status")
   }
 
+  const handleInitiateTransaction = async () => {
+    if (!currentRequest || !jwt) {
+      alert("Cannot initiate transaction. Request details are missing.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      // 1. Get transaction details from the backend
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/initiate`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ requestId: currentRequest.id }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to get transaction details from server.");
+      }
+
+      const { cadence, args } = await response.json();
+
+      // 2. Use FCL to send the transaction for user to sign
+      const txId = await fcl.mutate({
+        cadence,
+        args: (arg, t) => args.map((a: any) => arg(a.value, t[a.type])),
+        limit: 9999,
+      });
+
+      console.log("Transaction sent with ID:", txId);
+      setCurrentRequest(prev => prev ? { ...prev, txHash: txId, status: "processing" } : null);
+      setViewState("status"); // Move to status view to monitor transaction
+
+      // 3. Wait for the transaction to be sealed
+      await fcl.tx(txId).onceSealed();
+      pollRequestStatus(currentRequest.id); // Re-poll to get final status from backend
+
+    } catch (error) {
+      console.error("Failed to initiate transaction:", error);
+      alert("Failed to send transaction. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       <div className="container mx-auto px-4 py-12">
@@ -170,6 +215,8 @@ export default function SellPage() {
               memo={currentRequest.memo}
               amount={currentRequest.amount}
               stablecoin={currentRequest.stablecoin}
+              onConfirm={handleInitiateTransaction} // New prop
+              isLoading={isLoading} // New prop
               onCancel={handleReset}
             />
           )}
