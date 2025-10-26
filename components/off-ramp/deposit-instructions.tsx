@@ -14,6 +14,8 @@ interface DepositInstructionsProps {
   memo: string
   amount: number
   stablecoin: string
+  onConfirm?: () => void
+  isLoading?: boolean
   onCancel?: () => void
 }
 
@@ -23,6 +25,8 @@ export function DepositInstructions({
   memo,
   amount,
   stablecoin,
+  onConfirm,
+  isLoading,
   onCancel,
 }: DepositInstructionsProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null)
@@ -121,12 +125,15 @@ export function DepositInstructions({
 
         {/* Action Buttons */}
         <div className="flex flex-col gap-3 pt-4">
+          <Button size="lg" onClick={onConfirm} disabled={isLoading}>
+            {isLoading ? "Processing..." : "I Have Sent The Funds"}
+          </Button>
           <Button variant="outline" size="lg" asChild>
-            <a href={`/sell/status/${requestId}`}>Check Status</a>
+            <a href={`/sell/status/${requestId}`}>Check Status Manually</a>
           </Button>
 
           {onCancel && (
-            <Button variant="ghost" onClick={onCancel}>
+            <Button variant="ghost" onClick={onCancel} disabled={isLoading}>
               Cancel Request
             </Button>
           )}
