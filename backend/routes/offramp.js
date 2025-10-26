@@ -1,40 +1,14 @@
 const express = require("express");
 const router = express.Router();
+const fs = require("fs");
+const path = require("path");
 const { ForteActionsService } = require("../lib/forte-actions");
 const { createDocument, getDocument, updateDocument } = require("../lib/firebase-admin");
 const { SERVICE_WALLET } = require("../lib/constants");
 const { protect } = require("../lib/auth");
+const { t } = require("../lib/flow-client");
 
 const forte = new ForteActionsService();
-
-const processOffRampPayout = async (requestId) => {
-  try {
-    const request = await getDocument("offRampRequests", requestId);
-    if (!request) return;
-
-    // Update to processing
-    await updateDocument("offRampRequests", requestId, { status: "processing" });
-
-    const actionResult = await forte.executeOffRampAction({
-      depositor: request.walletAddress,
-      amount: request.amount,
-      stablecoin: request.stablecoin,
-      memo: request.memo,
-      requestId: request.id,
-    });
-
-    if (actionResult.success) {
-      // In a real application, you would initiate the fiat payout here.
-      console.log("[v0] Off-Ramp completed:", requestId);
-      await updateDocument("offRampRequests", requestId, { status: "completed" });
-    } else {
-      await updateDocument("offRampRequests", requestId, { status: "failed" });
-    }
-  } catch (error) {
-    console.error("[v0] Process payout error:", error);
-    await updateDocument("offRampRequests", requestId, { status: "failed" });
-  }
-};
 
 router.post("/request", protect, async (req, res) => {
   try {
@@ -66,6 +40,32 @@ router.post("/request", protect, async (req, res) => {
   } catch (error) {
     console.error("Create off-ramp request error:", error);
     res.status(500).json({ error: "Failed to create request" });
+  }
+});
+
+router.post("/initiate", protect, async (req, res) => {
+  try {
+    const { requestId } = req.body;
+    const request = await getDocument("offRampRequests", requestId);
+
+    if (!request) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+
+    const cadence = fs.readFileSync(path.join(__dirname, "../cadence/forte/execute_off_ramp_with_actions.cdc"), "utf8");
+    const args = [
+      { type: "UFix64", value: request.amount.toFixed(8) },
+      { type: "String", value: request.memo },
+      { type: "String", value: requestId },
+    ];
+
+    res.json({
+      cadence,
+      args,
+    });
+  } catch (error) {
+    console.error("Initiate off-ramp error:", error);
+    res.status(500).json({ error: "Failed to initiate off-ramp" });
   }
 });
 
