@@ -23,17 +23,15 @@ class ForteActionsService {
   async executeOnRampAction(params) {
     try {
       const { beneficiary, amountUSD, sessionId } = params;
-      // In a real implementation, the backend would sign the session ID
-      // and the Cadence script would verify the signature.
-      const backendSig = "mock-signature";
+      // In a real implementation, the backend would generate a secure signature.
+      const backendSig = "mock-signature"; // Placeholder
 
-      const cadence = readCadence("executeOnRamp");
+      const cadence = readCadence("execute_on_ramp_with_actions");
       const args = [
         [beneficiary, t.Address],
         [amountUSD.toFixed(8), t.UFix64],
-        ["FUSD", t.String],
         [sessionId, t.String],
-        [backendSig, t.Array(t.UInt8)],
+        [backendSig, t.String], // Adjusted for simplicity, use Array(t.UInt8) for real sigs
       ];
 
       const txHash = await sendTransaction(cadence, args);
@@ -52,12 +50,34 @@ class ForteActionsService {
   }
 
   async executeOffRampAction(params) {
-    // This is a placeholder for the off-ramp logic.
-    console.log("Executing Off-Ramp Action:", params);
-    return {
-      success: true,
-      txHash: `0xflow_offramp_${Date.now()}`,
-    };
+    try {
+      const { amount, memo, requestId } = params;
+
+      const cadence = readCadence("execute_off_ramp_with_actions");
+      const args = [
+          [amount.toFixed(8), t.UFix64],
+          [memo, t.String],
+          [requestId, t.String],
+      ];
+
+      // Note: This transaction must be signed by the USER, not the service.
+      // The current `sendTransaction` helper uses the service key.
+      // A complete implementation requires client-side signing for this.
+      // For this refactoring, we will call it to demonstrate the logic.
+      const txHash = await sendTransaction(cadence, args);
+      
+      console.log("Executing Off-Ramp Action:", params);
+      return {
+        success: true,
+        txHash,
+      };
+    } catch (error) {
+      console.error("Off-Ramp Action failed:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
   }
 
   async getBalance(address) {
