@@ -4,6 +4,8 @@ const cors = require("cors");
 const flowRoutes = require("./routes/flow");
 const onRampRoutes = require("./routes/onramp");
 const offRampRoutes = require("./routes/offramp");
+const swapRoutes = require("./routes/swap");
+const swapRoutes = require("./routes/swap");
 
 const app = express();
 const port = process.env.BACKEND_PORT || 3001;
@@ -20,6 +22,8 @@ app.use(express.json());
 app.use("/api/flow", flowRoutes);
 app.use("/api/onramp", onRampRoutes);
 app.use("/api/offramp", offRampRoutes);
+app.use("/api/swap", swapRoutes);
+app.use("/api/swap", swapRoutes);
 
 app.get("/", (req, res) => {
   res.send("Flow Backend is running!");
