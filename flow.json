@@ -1,4 +1,95 @@
 {
+	"dependencies": {
+		"Burner": {
+			"source": "testnet://9a0766d93b6608b7.Burner",
+			"hash": "71af18e227984cd434a3ad00bb2f3618b76482842bae920ee55662c37c8bf331",
+			"aliases": {
+				"emulator": "f8d6e0586b0a20c7",
+				"mainnet": "f233dcee88fe0abe",
+				"testnet": "9a0766d93b6608b7"
+			}
+		},
+		"DeFiActions": {
+			"source": "testnet://4c2ff9dd03ab442f.DeFiActions",
+			"hash": "189eda166268f49121e5c6e93ccba3d73844f320ad333da6a4f7817fe739470f",
+			"aliases": {
+				"testnet": "4c2ff9dd03ab442f"
+			}
+		},
+		"DeFiActionsMathUtils": {
+			"source": "testnet://4c2ff9dd03ab442f.DeFiActionsMathUtils",
+			"hash": "f2ae511846ea9a545380968837f47a4198447c008e575047f3ace3b7cf782067",
+			"aliases": {
+				"testnet": "4c2ff9dd03ab442f"
+			}
+		},
+		"DeFiActionsUtils": {
+			"source": "testnet://4c2ff9dd03ab442f.DeFiActionsUtils",
+			"hash": "e1aa823b14191ec794b131277d0821fc48ce80efe37cd2587d5dd73e4470cb4f",
+			"aliases": {
+				"testnet": "4c2ff9dd03ab442f"
+			}
+		},
+		"FungibleToken": {
+			"source": "testnet://9a0766d93b6608b7.FungibleToken",
+			"hash": "d84e41a86bd27806367b89c75a2a9570f7713480ab113cc214c4576466888958",
+			"aliases": {
+				"emulator": "ee82856bf20e2aa6",
+				"mainnet": "f233dcee88fe0abe",
+				"testnet": "9a0766d93b6608b7"
+			}
+		},
+		"FungibleTokenConnectors": {
+			"source": "testnet://5a7b9cee9aaf4e4e.FungibleTokenConnectors",
+			"hash": "9b93454bad8cef531c77be00d73f6bd8458152786885af7d9218fd8cbea36ea2",
+			"aliases": {
+				"testnet": "5a7b9cee9aaf4e4e"
+			}
+		},
+		"FungibleTokenMetadataViews": {
+			"source": "testnet://9a0766d93b6608b7.FungibleTokenMetadataViews",
+			"hash": "085d02742eb50e6200cf2a4ad4551857313513afa7205c1e85f5966547a56df3",
+			"aliases": {
+				"emulator": "ee82856bf20e2aa6",
+				"mainnet": "f233dcee88fe0abe",
+				"testnet": "9a0766d93b6608b7"
+			}
+		},
+		"MetadataViews": {
+			"source": "testnet://631e88ae7f1d7c20.MetadataViews",
+			"hash": "0b746cabba668c39de9dc47b94fc458f4119cbabb6883616e4a8750518310ccb",
+			"aliases": {
+				"emulator": "f8d6e0586b0a20c7",
+				"mainnet": "1d7e57aa55817448",
+				"testnet": "631e88ae7f1d7c20"
+			}
+		},
+		"NonFungibleToken": {
+			"source": "testnet://631e88ae7f1d7c20.NonFungibleToken",
+			"hash": "ac40c5a3ec05884ae48cb52ebf680deebb21e8a0143cd7d9b1dc88b0f107e088",
+			"aliases": {
+				"emulator": "f8d6e0586b0a20c7",
+				"mainnet": "1d7e57aa55817448",
+				"testnet": "631e88ae7f1d7c20"
+			}
+		},
+		"SwapConnectors": {
+			"source": "testnet://addd594cf410166a.SwapConnectors",
+			"hash": "a5e86c93a86ce335a418f565a8d7b01f9045e3e9cad18a274bc7e87e7463fe5c",
+			"aliases": {
+				"testnet": "addd594cf410166a"
+			}
+		},
+		"ViewResolver": {
+			"source": "testnet://631e88ae7f1d7c20.ViewResolver",
+			"hash": "374a1994046bac9f6228b4843cb32393ef40554df9bd9907a702d098a2987bde",
+			"aliases": {
+				"emulator": "f8d6e0586b0a20c7",
+				"mainnet": "1d7e57aa55817448",
+				"testnet": "631e88ae7f1d7c20"
+			}
+		}
+	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
 		"mainnet": "access.mainnet.nodes.onflow.org:9000",
@@ -12,6 +103,15 @@
 				"type": "file",
 				"location": "emulator-account.pkey"
 			}
+		}
+	},
+	"deployments": {
+		"emulator": {
+			"emulator-account": [
+				"FungibleTokenConnectors",
+				"DeFiActionsUtils",
+				"DeFiActions"
+			]
 		}
 	}
 }
