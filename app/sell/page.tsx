@@ -12,6 +12,7 @@ import * as t from "@onflow/types";
 // Define the type for an off-ramp request
 interface OffRampRequest {
   id: string;
+  txHash?: string; // Add txHash to the interface
   status: "pending" | "funded" | "processing" | "completed" | "failed";
   deposit_address: string;
   memo: string;
@@ -20,6 +21,13 @@ interface OffRampRequest {
   payoutDetails: any;
   // Add other fields as necessary
 }
+
+// Map string types from backend to FCL type objects
+const typeMap: { [key: string]: any } = {
+  "String": t.String,
+  "UFix64": t.UFix64,
+  "Address": t.Address,
+};
 
 type ViewState = "form" | "deposit" | "status"
 
@@ -54,8 +62,10 @@ export default function SellPage() {
     }
   }, [currentRequest])
 
-  const getAuthHeaders = () => {
-    if (!jwt) return {};
+  const getAuthHeaders = (): HeadersInit | undefined => {
+    if (!jwt) {
+      return undefined;
+    }
     return {
       "Content-Type": "application/json",
       Authorization: `Bearer ${jwt}`,
@@ -173,7 +183,7 @@ export default function SellPage() {
       // 2. Use FCL to send the transaction for user to sign
       const txId = await fcl.mutate({
         cadence,
-        args: (arg, t) => args.map((a: any) => arg(a.value, t[a.type])),
+        args: (arg) => args.map((a: { value: any; type: string }) => arg(a.value, typeMap[a.type])),
         limit: 9999,
       });
 
