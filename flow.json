@@ -55,6 +55,13 @@
 				"testnet": "9a0766d93b6608b7"
 			}
 		},
+		"IncrementFiSwapConnectors": {
+			"source": "testnet://49bae091e5ea16b5.IncrementFiSwapConnectors",
+			"hash": "7cfb5389870dd28cad267ffee7b2560d8553023b621f0e3333033c5503be5a5a",
+			"aliases": {
+				"testnet": "49bae091e5ea16b5"
+			}
+		},
 		"MetadataViews": {
 			"source": "testnet://631e88ae7f1d7c20.MetadataViews",
 			"hash": "0b746cabba668c39de9dc47b94fc458f4119cbabb6883616e4a8750518310ccb",
@@ -73,11 +80,53 @@
 				"testnet": "631e88ae7f1d7c20"
 			}
 		},
+		"StableSwapFactory": {
+			"source": "testnet://6ca93d49c45a249f.StableSwapFactory",
+			"hash": "c76a16339216863b7f097de7613fcc633ae3eb3a6e3b677315475ed5f694049a",
+			"aliases": {
+				"testnet": "6ca93d49c45a249f"
+			}
+		},
+		"SwapConfig": {
+			"source": "testnet://8d5b9dd833e176da.SwapConfig",
+			"hash": "90918363a734b9ad00e7aff166504529126448a7ef7a2c6a54a289ee6ec5b3c3",
+			"aliases": {
+				"testnet": "8d5b9dd833e176da"
+			}
+		},
 		"SwapConnectors": {
 			"source": "testnet://addd594cf410166a.SwapConnectors",
 			"hash": "a5e86c93a86ce335a418f565a8d7b01f9045e3e9cad18a274bc7e87e7463fe5c",
 			"aliases": {
 				"testnet": "addd594cf410166a"
+			}
+		},
+		"SwapError": {
+			"source": "testnet://8d5b9dd833e176da.SwapError",
+			"hash": "f49b34d428a8170044f3127a1dfd1f53a6c9b3d54735de57be4339a5ec22c369",
+			"aliases": {
+				"testnet": "8d5b9dd833e176da"
+			}
+		},
+		"SwapFactory": {
+			"source": "testnet://6ca93d49c45a249f.SwapFactory",
+			"hash": "e3b3b2d7a56998eea425e90e3e5aee007c8202c77f797dfb7b614d9641cefedf",
+			"aliases": {
+				"testnet": "6ca93d49c45a249f"
+			}
+		},
+		"SwapInterfaces": {
+			"source": "testnet://8d5b9dd833e176da.SwapInterfaces",
+			"hash": "866e728d7f4ce1d3c949532b9a52c69d288c12aa8c3e08f27328476621546edb",
+			"aliases": {
+				"testnet": "8d5b9dd833e176da"
+			}
+		},
+		"SwapRouter": {
+			"source": "testnet://2f8af5ed05bbde0d.SwapRouter",
+			"hash": "2aad23def30b2a17c7c4c83a1d1900d009b5e7b2218cdc84f7b830116f587489",
+			"aliases": {
+				"testnet": "2f8af5ed05bbde0d"
 			}
 		},
 		"ViewResolver": {
@@ -110,7 +159,12 @@
 			"emulator-account": [
 				"FungibleTokenConnectors",
 				"DeFiActionsUtils",
-				"DeFiActions"
+				"DeFiActions",
+				"IncrementFiSwapConnectors",
+				"SwapInterfaces",
+				"SwapConfig",
+				"StableSwapFactory",
+				"SwapRouter"
 			]
 		}
 	}
