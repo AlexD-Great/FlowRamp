@@ -42,8 +42,10 @@ export default function BuyPage() {
     }
   }, [currentSession])
 
-  const getAuthHeaders = () => {
-    if (!jwt) return {};
+  const getAuthHeaders = (): HeadersInit | undefined => {
+    if (!jwt) {
+      return undefined;
+    }
     return {
       "Content-Type": "application/json",
       Authorization: `Bearer ${jwt}`,
