@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { RefreshCw } from "lucide-react"
-import { ForteActionsService } from "@/lib/services/forte-actions"
 
 interface WalletBalanceProps {
   address: string
@@ -23,11 +22,16 @@ export function WalletBalance({ address }: WalletBalanceProps) {
   const loadBalance = async () => {
     setIsLoading(true)
     try {
-      const forteActions = new ForteActionsService(address)
-      const fUSDCBalance = await forteActions.getBalance(address)
-      setBalance(fUSDCBalance)
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+      const response = await fetch(`${backendUrl}/api/flow/balance/${address}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch balance from backend.");
+      }
+      const data = await response.json();
+      setBalance(parseFloat(data.balance));
     } catch (error) {
       console.error("Failed to load balance:", error)
+      setBalance(0); // Reset balance on error
     } finally {
       setIsLoading(false)
     }
