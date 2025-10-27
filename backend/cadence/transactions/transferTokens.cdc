@@ -1,4 +1,4 @@
-import FungibleToken from 0xFUNGIBLETOKEN
+import "FungibleToken"
 import FUSD from 0xFUSD
 import FlowRamp from 0xFLOWRAMP
 
