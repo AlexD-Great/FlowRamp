@@ -1,5 +1,5 @@
-import FungibleToken from 0xFUNGIBLETOKEN
-import FungibleTokenConnectors from 0x5a7b9cee9aaf4e4e // Testnet address
+import "FungibleToken"
+import "FungibleTokenConnectors"// Testnet address
 import FlowRamp from 0xFLOWRAMP // Replace with your contract address
 
 transaction(amount: UFix64, memo: String, requestId: String) {
