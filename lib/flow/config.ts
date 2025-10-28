@@ -1,16 +1,18 @@
 // lib/flow/config.ts
 import { config } from "@onflow/fcl";
 
-// This file configures FCL for client-side interactions.
+// Flow configuration for client-side interactions
+export const flowConfig = {
+  accessNode: "https://rest-testnet.onflow.org",
+  walletDiscovery: "https://fcl-discovery.onflow.org/testnet/authn",
+  appTitle: "FlowRamp",
+  appIcon: "https://flowramp.com/favicon.ico",
+}
 
+// Configure FCL
 config({
-  // Point FCL to the correct Flow testnet access node.
-  "accessNode.api": "https://rest-testnet.onflow.org",
-  
-  // Point FCL to the correct wallet discovery endpoint for testnet.
-  "discovery.wallet": "https://fcl-discovery.onflow.org/testnet/authn",
-
-  // Add application metadata
-  "app.detail.title": "FlowRamp",
-  "app.detail.icon": "https://flowramp.com/favicon.ico", // Replace with your actual icon URL
+  "accessNode.api": flowConfig.accessNode,
+  "discovery.wallet": flowConfig.walletDiscovery,
+  "app.detail.title": flowConfig.appTitle,
+  "app.detail.icon": flowConfig.appIcon,
 });
