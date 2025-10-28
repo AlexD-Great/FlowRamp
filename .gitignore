@@ -27,5 +27,24 @@ yarn-error.log*
 next-env.d.ts
 # flow
 emulator-account.pkey
+testnet-account.pkey
+*.pkey
 imports
 .env
+backend/.env
+backend/.env.local
+
+# Firebase service account keys
+*serviceAccountKey.json
+serviceAccount*.json
+
+# Documentation files
+all_merged.md
+CADENCE_LINT_ERRORS.md
+DEPLOY_CONTRACT.md
+IMPLEMENTATION_COMPLETE.md
+INTEGRATION_SUMMARY.md
+PAYSTACK_SETUP.md
+PRODUCTION_SETUP_COMPLETE.md
+QUICK_START.md
+RENDER_DEPLOYMENT.md
