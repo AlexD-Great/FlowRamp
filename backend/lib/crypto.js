@@ -42,4 +42,6 @@ const authorization = (address, privateKey, keySequenceNumber) => async (account
 
 module.exports = {
   authorization,
+  sign,
+  hash,
 };
