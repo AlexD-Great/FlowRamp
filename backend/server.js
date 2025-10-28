@@ -8,7 +8,8 @@ const swapRoutes = require("./routes/swap");
 const webhookRoutes = require("./routes/webhook");
 
 const app = express();
-const port = process.env.BACKEND_PORT || 3001;
+// Render provides PORT, but we also support BACKEND_PORT for local development
+const port = process.env.PORT || process.env.BACKEND_PORT || 3001;
 
 const corsOptions = {
   origin: process.env.CORS_ORIGIN || "*", // Allow all origins in development
