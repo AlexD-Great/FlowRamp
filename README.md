@@ -41,6 +41,20 @@ The backend is a dedicated Node.js server built with Express, designed to be hos
 
 ---
 
+## 🚀 Quick Start
+
+**New to FlowRamp?** Follow our step-by-step guide:
+
+👉 **[QUICK_START.md](./QUICK_START.md)** - Get running in 5 minutes!
+
+For detailed Paystack integration setup:
+
+👉 **[PAYSTACK_SETUP.md](./PAYSTACK_SETUP.md)** - Complete Paystack configuration guide
+
+For architecture and technical details:
+
+👉 **[INTEGRATION_SUMMARY.md](./INTEGRATION_SUMMARY.md)** - Full integration documentation
+
 ## Getting Started
 
 Follow these instructions to set up and run the project locally for development.
@@ -50,8 +64,8 @@ Follow these instructions to set up and run the project locally for development.
 -   [Node.js](https://nodejs.org/) (v18 or later)
 -   [npm](https://www.npmjs.com/) or another package manager
 -   A [Firebase](https://console.firebase.google.com/) project with Authentication and Firestore enabled.
--   A [Flow Testnet](https://testnet-faucet.onflow.org/) account.
--   A [Paystack](https://paystack.com/) account (or another payment provider).
+-   A [Flow Testnet](https://testnet-faucet.onflow.org/) account (already configured with testnet account).
+-   A [Paystack](https://paystack.com/) account for NGN payments.
 
 ### 1. Clone the Repository
 
