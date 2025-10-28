@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signUpWithEmail } from "@/lib/firebase/auth";
 import { Button } from "@/components/ui/button";
