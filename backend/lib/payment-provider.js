@@ -18,13 +18,13 @@ class PaymentProvider {
     });
   }
 
-  async createPaymentIntent(amount, currency, metadata) {
+  async createPaymentIntent(amount, currency, metadata, email = "customer@example.com") {
     try {
       const response = await this.httpClient.post("/transaction/initialize", {
         amount: amount * 100, // Paystack expects amount in kobo
         currency,
         metadata,
-        email: "customer@example.com", // Paystack requires an email
+        email, // Use provided email or fallback
       });
 
       const { data } = response.data;
@@ -35,7 +35,7 @@ class PaymentProvider {
         expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
       };
     } catch (error) {
-      console.error("Error creating Paystack payment intent:", error);
+      console.error("Error creating Paystack payment intent:", error.response?.data || error.message);
       throw new Error("Could not create payment intent.");
     }
   }
