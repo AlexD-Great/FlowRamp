@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { PaymentProvider } = require("../lib/payment-provider");
 const { ForteActionsService } = require("../lib/forte-actions");
-const { createDocument, getDocument, queryDocuments } = require("../lib/firebase-admin");
+const { createDocument, getDocument, queryDocuments, getUserById } = require("../lib/firebase-admin");
 const { calculateOnRampTotal } = require("../lib/conversions"); // We will create this file next
 const { protect } = require("../lib/auth");
 
@@ -12,22 +12,36 @@ const forte = new ForteActionsService();
 router.post("/create-session", protect, async (req, res) => {
   try {
     // Associate the session with the authenticated user
-    const { uid } = req.user;
+    const { uid, email } = req.user;
     const { walletAddress, fiatCurrency, fiatAmount, preferredStablecoin = "FUSD" } = req.body;
 
     if (!walletAddress || !fiatCurrency || !fiatAmount) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    // Get user email if not in token
+    let userEmail = email;
+    if (!userEmail) {
+      const userRecord = await getUserById(uid);
+      userEmail = userRecord?.email || "customer@example.com";
+    }
+
     const calculation = calculateOnRampTotal(fiatAmount, fiatCurrency);
 
-    const paymentIntent = await paymentProvider.createPaymentIntent(fiatAmount, fiatCurrency, {
-      walletAddress,
-      stablecoin: preferredStablecoin,
-    });
+    const paymentIntent = await paymentProvider.createPaymentIntent(
+      fiatAmount, 
+      fiatCurrency, 
+      {
+        walletAddress,
+        stablecoin: preferredStablecoin,
+        userId: uid,
+      },
+      userEmail
+    );
 
     const session = {
       userId: uid, // Link session to user
+      userEmail,
       walletAddress,
       fiatAmount,
       fiatCurrency,
