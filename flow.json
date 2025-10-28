@@ -152,7 +152,17 @@
 				"type": "file",
 				"location": "emulator-account.pkey"
 			}
+		},
+		"testnet-account": {
+			"address": "b30759ba587f6650",
+			"key": {
+				"type": "file",
+				"location": "testnet-account.pkey"
+			}
 		}
+	},
+	"contracts": {
+		"FlowRamp": "cadence/contracts/FlowRamp.cdc"
 	},
 	"deployments": {
 		"emulator": {
@@ -165,6 +175,11 @@
 				"SwapConfig",
 				"StableSwapFactory",
 				"SwapRouter"
+			]
+		},
+		"testnet": {
+			"testnet-account": [
+				"FlowRamp"
 			]
 		}
 	}
