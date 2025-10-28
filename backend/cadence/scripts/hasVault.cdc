@@ -1,7 +1,8 @@
 import "FungibleToken"
-import FUSD from 0xe223d8a629e49c68
 
-access(all) fun main(address: Address): Bool {
+// Generic script to check if an account has a vault capability at a given path
+access(all) fun main(address: Address, publicBalancePath: PublicPath): Bool {
   let account = getAccount(address)
-  return account.getCapability(/public/fusdBalance).check<&FUSD.Vault{FungibleToken.Balance}>()
+  let vaultCap = account.capabilities.get<&{FungibleToken.Balance}>(publicBalancePath)
+  return vaultCap.check()
 }
