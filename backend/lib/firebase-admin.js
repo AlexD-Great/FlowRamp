@@ -30,7 +30,7 @@ const getDocument = async (collectionName, id) => {
     const docRef = db.collection(collectionName).doc(id);
     const docSnap = await docRef.get();
     if (docSnap.exists) {
-      return docSnap.data();
+      return { id: docSnap.id, ...docSnap.data() };
     } else {
       console.log("No such document!");
       return null;
@@ -66,7 +66,7 @@ const queryDocuments = async (collectionName, field, operator, value) => {
     const querySnapshot = await q.get();
     const results = [];
     querySnapshot.forEach((doc) => {
-      results.push(doc.data());
+      results.push({ id: doc.id, ...doc.data() });
     });
     return results;
   } catch (e) {
@@ -87,6 +87,16 @@ const verifyIdToken = async (idToken) => {
   }
 };
 
+const getUserById = async (uid) => {
+  try {
+    const userRecord = await auth.getUser(uid);
+    return userRecord;
+  } catch (error) {
+    console.error("Error fetching user data:", error);
+    return null;
+  }
+};
+
 module.exports = {
   createDocument,
   getDocument,
@@ -94,4 +104,7 @@ module.exports = {
   deleteDocument,
   queryDocuments,
   verifyIdToken,
+  getUserById,
+  auth,
+  db,
 };
