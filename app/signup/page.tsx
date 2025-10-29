@@ -17,13 +17,28 @@ import { Label } from "@/components/ui/label";
 export default function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleSignUp = async () => {
-    const user = await signUpWithEmail(email, password);
-    if (user) {
-      router.push("/");
+    if (!email || !password) {
+      setError("Please fill in all fields");
+      return;
     }
+
+    setLoading(true);
+    setError("");
+
+    const result = await signUpWithEmail(email, password);
+    
+    if (result.user) {
+      router.push("/dashboard");
+    } else {
+      setError(result.error || "Failed to create account");
+    }
+    
+    setLoading(false);
   };
 
   return (
@@ -37,6 +52,11 @@ export default function SignUp() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded">
+                {error}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -46,6 +66,7 @@ export default function SignUp() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
               />
             </div>
             <div className="space-y-2">
@@ -53,14 +74,22 @@ export default function SignUp() {
               <Input
                 id="password"
                 type="password"
+                placeholder="Minimum 6 characters"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
               />
             </div>
-            <Button onClick={handleSignUp} className="w-full">
-              Sign Up
+            <Button onClick={handleSignUp} className="w-full" disabled={loading}>
+              {loading ? "Creating account..." : "Sign Up"}
             </Button>
+            <p className="text-sm text-center text-gray-600">
+              Already have an account?{" "}
+              <a href="/signin" className="text-blue-600 hover:underline">
+                Sign In
+              </a>
+            </p>
           </div>
         </CardContent>
       </Card>
