@@ -14,7 +14,34 @@ const app = express();
 const port = process.env.PORT || process.env.BACKEND_PORT || 3001;
 
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || "*", // Allow all origins in development
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'https://flowramp.vercel.app',
+      'https://flowramp-git-main-alexd-greats-projects.vercel.app', // Vercel preview URLs
+      process.env.CORS_ORIGIN
+    ].filter(Boolean);
+    
+    // Check if origin matches any pattern
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (allowed === '*') return true;
+      if (allowed && origin.includes('vercel.app')) return true;
+      return origin === allowed;
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 };
 
 // Webhook route MUST come before express.json() middleware
