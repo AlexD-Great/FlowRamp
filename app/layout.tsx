@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { AuthProvider } from "@/lib/firebase/auth";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";

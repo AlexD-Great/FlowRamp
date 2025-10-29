@@ -14,6 +14,25 @@ import {
 import { initializeApp } from "firebase/app";
 import firebaseConfig from "./config";
 
+// Debug Firebase config
+if (typeof window !== "undefined") {
+  console.log("🔥 Firebase Config Check:");
+  console.log("Project ID:", firebaseConfig.projectId || "❌ MISSING");
+  console.log("Auth Domain:", firebaseConfig.authDomain || "❌ MISSING");
+  console.log("API Key:", firebaseConfig.apiKey ? "✅ Present" : "❌ MISSING");
+}
+
+// Validate required config
+if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
+  console.error("❌ Firebase configuration is incomplete!");
+  console.error("Missing values:", {
+    apiKey: !firebaseConfig.apiKey,
+    authDomain: !firebaseConfig.authDomain,
+    projectId: !firebaseConfig.projectId,
+  });
+  throw new Error("Firebase configuration is incomplete. Check your environment variables.");
+}
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
