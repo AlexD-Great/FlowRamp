@@ -6,6 +6,8 @@ const onRampRoutes = require("./routes/onramp");
 const offRampRoutes = require("./routes/offramp");
 const swapRoutes = require("./routes/swap");
 const webhookRoutes = require("./routes/webhook");
+const walletRoutes = require("./routes/wallet");
+const kycRoutes = require("./routes/kyc");
 
 const app = express();
 // Render provides PORT, but we also support BACKEND_PORT for local development
@@ -28,6 +30,8 @@ app.use("/api/flow", flowRoutes);
 app.use("/api/onramp", onRampRoutes);
 app.use("/api/offramp", offRampRoutes);
 app.use("/api/swap", swapRoutes);
+app.use("/api/wallet", walletRoutes);
+app.use("/api/kyc", kycRoutes);
 
 app.get("/", (req, res) => {
   res.send("FlowRamp Backend is running!");
