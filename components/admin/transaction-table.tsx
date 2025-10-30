@@ -57,7 +57,7 @@ export function TransactionTable({ onRampSessions, offRampRequests, onRefresh, i
       status: r.status,
       walletAddress: r.walletAddress,
       txHash: undefined,
-      created_at: r.created_at,
+      created_at: r.createdAt,
     })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
