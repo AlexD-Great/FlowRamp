@@ -5,22 +5,11 @@ import { SellForm } from "@/components/off-ramp/sell-form"
 import { DepositInstructions } from "@/components/off-ramp/deposit-instructions"
 import { WithdrawalStatus } from "@/components/off-ramp/withdrawal-status"
 import { WithdrawalHistory } from "@/components/off-ramp/withdrawal-history"
-import { useAuth } from "@/lib/firebase/auth" // Assuming you have a useAuth hook
+import { useAuth } from "@/lib/firebase/auth"
+import { BackButton } from "@/components/ui/back-button"
 import * as fcl from "@onflow/fcl";
 import * as t from "@onflow/types";
-
-// Define the type for an off-ramp request
-interface OffRampRequest {
-  id: string;
-  txHash?: string; // Add txHash to the interface
-  status: "pending" | "funded" | "processing" | "completed" | "failed";
-  deposit_address: string;
-  memo: string;
-  amount: number;
-  stablecoin: string;
-  payoutDetails: any;
-  // Add other fields as necessary
-}
+import type { OffRampRequest } from "@/lib/types/database"
 
 // Map string types from backend to FCL type objects
 const typeMap: { [key: string]: any } = {
@@ -206,6 +195,11 @@ export default function SellPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       <div className="container mx-auto px-4 py-12">
+        {/* Back Button */}
+        <div className="mb-6">
+          <BackButton href="/" />
+        </div>
+        
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4 text-balance">Sell Flow Stablecoins</h1>
