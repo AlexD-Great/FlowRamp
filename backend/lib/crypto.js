@@ -1,10 +1,12 @@
 const { ec } = require("elliptic");
 const { SHA3 } = require("sha3");
 
-const ec_secp256k1 = new ec("secp256k1");
+// Use P256 curve (also known as secp256r1 or prime256v1)
+// This matches the ECDSA_P256 algorithm on your Flow account
+const ec_p256 = new ec("p256");
 
 const sign = (privateKey, message) => {
-  const key = ec_secp256k1.keyFromPrivate(privateKey, "hex");
+  const key = ec_p256.keyFromPrivate(privateKey, "hex");
   const sig = key.sign(hash(message));
   
   // Flow requires signature in raw format (r + s), not DER format

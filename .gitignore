@@ -53,3 +53,9 @@ RENDER_FREE_TIER_FIX.md
 FIXES_APPLIED.md
 SIGNATURE_FIX.md
 SUCCESS_NOTIFICATION_FEATURE.md
+KEY_MISMATCH_FIX.md
+P256_CURVE_FIX.md
+
+# Helper scripts
+backend/verify-key.js
+backend/get-public-key.js
