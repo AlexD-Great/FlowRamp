@@ -16,12 +16,33 @@ export default function BuyPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [jwt, setJwt] = useState<string | null>(null);
   const [lastNotifiedStatus, setLastNotifiedStatus] = useState<string | null>(null);
+  const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       user.getIdToken().then(setJwt);
       loadSessions();
     }
+    
+    // Load connected wallet from localStorage
+    const savedWallet = localStorage.getItem('flow_wallet_address');
+    if (savedWallet) {
+      setConnectedWallet(savedWallet);
+    }
+    
+    // Listen for wallet connection events
+    const handleWalletConnect = (e: CustomEvent) => {
+      if (e.detail?.address) {
+        setConnectedWallet(e.detail.address);
+        localStorage.setItem('flow_wallet_address', e.detail.address);
+      }
+    };
+    
+    window.addEventListener('wallet:connected' as any, handleWalletConnect);
+    
+    return () => {
+      window.removeEventListener('wallet:connected' as any, handleWalletConnect);
+    };
   }, [user]);
 
   // Poll for session updates when processing
@@ -180,7 +201,11 @@ export default function BuyPage() {
               onReset={handleReset}
             />
           ) : (
-            <BuyForm onSubmit={handleSubmit} isLoading={isLoading} />
+            <BuyForm 
+              onSubmit={handleSubmit} 
+              isLoading={isLoading}
+              defaultWalletAddress={connectedWallet || undefined}
+            />
           )}
 
           {/* Transaction History */}
