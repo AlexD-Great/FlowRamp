@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signUpWithEmail } from "@/lib/firebase/auth";
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/ui/back-button";
 import {
   Card,
   CardContent,
@@ -42,12 +43,18 @@ export default function SignUp() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Sign Up</CardTitle>
-          <CardDescription>
-            Create an account to get started
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-background to-muted">
+      <div className="w-full max-w-md">
+        {/* Back Button */}
+        <div className="mb-4">
+          <BackButton href="/" />
+        </div>
+        
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle>Sign Up</CardTitle>
+            <CardDescription>
+              Create an account to get started
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -93,6 +100,7 @@ export default function SignUp() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
