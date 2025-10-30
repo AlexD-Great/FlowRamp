@@ -1,14 +1,16 @@
 # FlowRamp - Flow Blockchain On/Off Ramp
 
-FlowRamp is a secure and efficient on/off-ramp for the Flow blockchain, designed to bridge traditional finance with the digital asset ecosystem. It provides a seamless experience for users to convert fiat currency (initially Nigerian Naira - NGN) into Flow stablecoins (fUSDC, fUSDT) and vice-versa.
+FlowRamp is a secure and efficient cryptocurrency on/off-ramp platform for the Flow blockchain. It bridges traditional finance with decentralized finance by enabling users to seamlessly convert fiat currency (Nigerian Naira) into Flow stablecoins (fUSDC, fUSDT) and vice-versa.
 
-## Key Features
+## 🚀 Key Features
 
--   **On-Ramp (Buy):** Users can purchase Flow stablecoins using their local fiat currency through a familiar payment provider interface.
--   **Off-Ramp (Sell):** Users can sell their Flow stablecoins and receive fiat currency directly in their bank accounts.
--   **Secure Wallet Integration:** Leverages the Flow Client Library (FCL) for non-custodial wallet interactions on the frontend.
--   **User Authentication:** Secure user authentication and management handled by Firebase.
--   **Transaction History:** Users can view a complete history of their on-ramp and off-ramp transactions.
+-   **💳 On-Ramp (Buy):** Purchase Flow stablecoins using local fiat currency through Paystack payment integration
+-   **💰 Off-Ramp (Sell):** Sell Flow stablecoins and receive fiat currency directly to your bank account
+-   **🔒 Wallet Ownership Verification:** Cryptographic signature verification to prove wallet ownership
+-   **🔐 Secure Authentication:** Firebase Authentication with email/password and Google OAuth
+-   **📊 Transaction Dashboard:** View complete transaction history and manage your profile
+-   **👤 KYC Integration:** Know Your Customer verification for compliance
+-   **⚡ Real-time Updates:** Live transaction status tracking and payment confirmation
 
 ## Architecture
 
@@ -41,21 +43,30 @@ The backend is a dedicated Node.js server built with Express, designed to be hos
 
 ---
 
-## 🚀 Quick Start
+## 🛠️ Tech Stack
 
-**New to FlowRamp?** Follow our step-by-step guide:
+**Frontend:**
+- Next.js 15 with TypeScript
+- Tailwind CSS for styling
+- shadcn/ui components
+- Flow Client Library (FCL) for blockchain interactions
+- Firebase Authentication
 
-👉 **[QUICK_START.md](./QUICK_START.md)** - Get running in 5 minutes!
+**Backend:**
+- Node.js with Express
+- Firebase Admin SDK
+- Flow blockchain integration
+- Paystack payment API
+- Firestore database
 
-For detailed Paystack integration setup:
+**Blockchain:**
+- Flow Testnet
+- Cadence smart contracts
+- ECDSA_P256 signature algorithm
 
-👉 **[PAYSTACK_SETUP.md](./PAYSTACK_SETUP.md)** - Complete Paystack configuration guide
+---
 
-For architecture and technical details:
-
-👉 **[INTEGRATION_SUMMARY.md](./INTEGRATION_SUMMARY.md)** - Full integration documentation
-
-## Getting Started
+## 📋 Getting Started
 
 Follow these instructions to set up and run the project locally for development.
 
@@ -78,8 +89,45 @@ cd flowramp-app
 
 This project requires two separate `.env` files: one for the frontend and one for the backend.
 
--   In the root directory, copy `.env.example` to `.env` and fill in your Firebase **client-side** credentials.
--   In the `backend/` directory, copy `backend/.env.example` to `backend/.env` and fill in your **server-side** credentials (Firebase Admin, Flow private key, Payment Provider secret key).
+#### Frontend Environment Variables (`.env.local`)
+
+Create a `.env.local` file in the root directory:
+
+```bash
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+```
+
+#### Backend Environment Variables (`backend/.env`)
+
+Create a `.env` file in the `backend/` directory:
+
+```bash
+# Firebase Admin
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your_project.iam.gserviceaccount.com
+
+# Flow Blockchain
+SERVICE_PRIVATE_KEY=your_flow_private_key_64_chars
+SERVICE_WALLET_ADDRESS=0xyourflowaddress
+FLOW_NETWORK=testnet
+FLOW_ACCESS_NODE=https://rest-testnet.onflow.org
+
+# Paystack
+PAYSTACK_SECRET_KEY=sk_test_your_paystack_secret
+PAYSTACK_PUBLIC_KEY=pk_test_your_paystack_public
+
+# Server
+PORT=3001
+NODE_ENV=development
+CORS_ORIGIN=http://localhost:3000
+```
 
 ### 3. Install Dependencies
 
@@ -118,47 +166,196 @@ Your Node.js backend will be running at `http://localhost:3001`.
 
 ---
 
-## Deployment
+## 🚀 Deployment
 
 This application is designed to be deployed in two parts:
 
-### 1. Backend on Render
+### Backend Deployment (Render)
 
-The Node.js backend should be deployed as a **Web Service** on Render.
+1. **Create a Web Service** on [Render](https://render.com)
+   - Connect your Git repository
+   - Build Command: `cd backend && npm install`
+   - Start Command: `cd backend && npm start`
+   - Environment: Add all backend environment variables
 
--   **Build Command:** `npm install`
--   **Start Command:** `npm start`
--   **Environment Variables:** Add all variables from your `backend/.env` file to the Render environment.
+2. **Set Up Cron Job** (Optional - for deposit monitoring)
+   - Command: `cd backend && node scripts/deposit-watcher.js`
+   - Schedule: `*/5 * * * *` (every 5 minutes)
 
-The deposit watcher script should be deployed as a **Cron Job** on Render.
+3. **Configure Paystack Webhook**
+   - Go to Paystack Dashboard → Settings → Webhooks
+   - Add webhook URL: `https://your-render-url.onrender.com/api/webhook/paystack`
+   - Copy webhook secret to your environment variables
 
--   **Command:** `node scripts/deposit-watcher.js`
--   **Schedule:** Set it to run at a desired interval (e.g., every 5 minutes: `*/5 * * * *`).
+### Frontend Deployment (Vercel)
 
-### 2. Frontend on Vercel
+1. **Deploy to Vercel**
+   - Create new project on [Vercel](https://vercel.com)
+   - Import your Git repository
+   - Vercel auto-detects Next.js configuration
 
-The Next.js frontend is optimized for deployment on Vercel.
+2. **Environment Variables**
+   - Add all frontend environment variables
+   - Set `NEXT_PUBLIC_BACKEND_URL` to your Render backend URL
 
-1.  Create a new project on Vercel and connect your Git repository.
-2.  Vercel will automatically detect that it is a Next.js project.
-3.  Add your frontend environment variables from your root `.env` file to the Vercel project settings.
-4.  **Crucially, set the `NEXT_PUBLIC_BACKEND_URL` variable to the public URL of your deployed Render backend service.**
+3. **Deploy**
+   - Vercel will automatically build and deploy
+   - Each git push triggers automatic redeployment
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
-.
-├── app/                  # Next.js App Router (Frontend Pages)
-│   ├── buy/
-│   └── sell/
-├── backend/              # Node.js Express Server
-│   ├── cadence/          # Cadence scripts (.cdc files)
-│   ├── lib/              # Backend business logic
-│   ├── routes/           # API route definitions
-│   └── server.js         # Express server entry point
-├── components/           # Reusable React components
-├── lib/firebase/         # Client-side Firebase setup
-└── public/               # Static assets
+flowramp-app/
+├── app/                       # Next.js App Router (Frontend Pages)
+│   ├── admin/                 # Admin dashboard
+│   ├── buy/                   # On-ramp page (buy crypto)
+│   ├── sell/                  # Off-ramp page (sell crypto)
+│   ├── dashboard/             # User dashboard
+│   ├── layout.tsx             # Root layout
+│   └── page.tsx               # Landing page
+│
+├── backend/                   # Node.js Express Server
+│   ├── cadence/               # Cadence smart contracts
+│   │   └── scripts/           # Flow blockchain scripts
+│   ├── lib/                   # Backend utilities
+│   │   ├── auth.js            # JWT authentication
+│   │   ├── crypto.js          # P256 signature utilities
+│   │   ├── firebase-admin.js  # Firebase Admin SDK setup
+│   │   └── payment-processor.js # Payment processing logic
+│   ├── routes/                # API endpoints
+│   │   ├── admin.js           # Admin routes
+│   │   ├── flow.js            # Flow blockchain routes
+│   │   ├── kyc.js             # KYC verification routes
+│   │   ├── offramp.js         # Off-ramp endpoints
+│   │   ├── onramp.js          # On-ramp endpoints
+│   │   ├── wallet.js          # Wallet management
+│   │   ├── wallet-verification.js # Wallet signature verification
+│   │   └── webhook.js         # Paystack webhooks
+│   ├── scripts/               # Background jobs
+│   │   └── deposit-watcher.js # Monitor blockchain deposits
+│   └── server.js              # Express server entry point
+│
+├── components/                # React UI Components
+│   ├── admin/                 # Admin-specific components
+│   ├── flow/                  # Flow wallet components
+│   │   ├── wallet-connect.tsx # Wallet connection with signature
+│   │   └── wallet-balance.tsx # Balance display
+│   ├── off-ramp/              # Sell crypto components
+│   ├── on-ramp/               # Buy crypto components
+│   └── ui/                    # shadcn/ui components
+│
+├── lib/                       # Frontend utilities
+│   ├── api/                   # API client functions
+│   ├── firebase/              # Firebase client setup
+│   ├── flow/                  # Flow blockchain client
+│   │   ├── fcl-client.ts      # FCL wrapper with signature verification
+│   │   └── config.ts          # Flow network configuration
+│   └── types/                 # TypeScript type definitions
+│
+└── public/                    # Static assets
 ```
+
+---
+
+## 🔌 API Endpoints
+
+### Authentication Required
+All protected endpoints require Firebase JWT token in Authorization header:
+```
+Authorization: Bearer <firebase_jwt_token>
+```
+
+### On-Ramp (Buy) Endpoints
+
+- `POST /api/onramp/create-session` - Create new on-ramp session
+- `GET /api/onramp/sessions` - Get user's on-ramp sessions
+- `GET /api/onramp/session/:id` - Get specific session details
+
+### Off-Ramp (Sell) Endpoints
+
+- `POST /api/offramp/create-request` - Create new off-ramp request
+- `GET /api/offramp/requests` - Get user's off-ramp requests
+- `GET /api/offramp/request/:id` - Get specific request details
+- `POST /api/offramp/transaction` - Get Cadence transaction for user to sign
+
+### Wallet Endpoints
+
+- `POST /api/wallet/verify` - Verify wallet ownership with signature
+- `GET /api/wallet/balance` - Get wallet balance for Flow tokens
+
+### KYC Endpoints
+
+- `POST /api/kyc/submit` - Submit KYC verification
+- `GET /api/kyc/status` - Get KYC verification status
+
+### Webhook Endpoints (Public)
+
+- `POST /api/webhook/paystack` - Paystack payment webhook
+
+---
+
+## 🔐 Security Features
+
+- **Firebase Authentication** - Secure user authentication with JWT tokens
+- **Wallet Signature Verification** - Cryptographic proof of wallet ownership using FCL
+- **P256 Curve Signatures** - ECDSA_P256 signatures for Flow blockchain transactions
+- **Timestamp Validation** - Prevents replay attacks on signature verification
+- **CORS Protection** - Configured CORS for secure cross-origin requests
+- **Environment Variables** - Sensitive credentials stored in environment variables
+- **Paystack Webhook Verification** - Validates webhook signatures from Paystack
+
+---
+
+## 🎯 How It Works
+
+### On-Ramp Flow (Buy Crypto)
+
+1. User authenticates with Firebase
+2. User connects Flow wallet (with signature verification)
+3. User selects amount and stablecoin type
+4. System creates on-ramp session in Firestore
+5. User redirected to Paystack for payment
+6. User completes payment with NGN
+7. Paystack webhook notifies backend
+8. Backend processes payment and sends crypto to user's wallet
+9. Transaction marked as complete
+
+### Off-Ramp Flow (Sell Crypto)
+
+1. User authenticates with Firebase
+2. User connects Flow wallet (with signature verification)
+3. User enters bank details and amount
+4. System creates off-ramp request with deposit address
+5. User sends stablecoins to deposit address
+6. Blockchain watcher detects deposit
+7. Backend processes withdrawal
+8. Fiat sent to user's bank account via Paystack
+9. Transaction marked as complete
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+---
+
+## 🆘 Support
+
+For issues and questions:
+- Check the console logs for detailed error messages
+- Ensure all environment variables are correctly set
+- Verify Firebase and Flow blockchain configurations
+- Check Paystack webhook is properly configured
+
+---
+
+**Built with ❤️ for the Flow blockchain ecosystem**
