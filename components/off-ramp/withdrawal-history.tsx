@@ -72,7 +72,7 @@ export function WithdrawalHistory({ requests }: WithdrawalHistoryProps) {
                   {request.payoutDetails?.method === "bank_transfer"
                     ? `${request.payoutDetails.bank} - ${request.payoutDetails.accountNumber}`
                     : request.payoutDetails?.phoneNumber}{" "}
-                  • {new Date(request.created_at).toLocaleDateString()}
+                  • {new Date(request.createdAt).toLocaleDateString()}
                 </p>
                 <p className="text-xs text-muted-foreground font-mono">{request.id}</p>
               </div>
