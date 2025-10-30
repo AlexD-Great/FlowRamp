@@ -16,6 +16,19 @@ export default function WalletPage() {
       const fcl = FCLClient.getInstance()
       const currentUser = await fcl.getCurrentUser()
       setUser(currentUser)
+      
+      // Save wallet address to localStorage and dispatch event
+      if (currentUser?.loggedIn && currentUser.addr) {
+        localStorage.setItem('flow_wallet_address', currentUser.addr);
+        
+        // Dispatch custom event for other pages to listen
+        const event = new CustomEvent('wallet:connected', {
+          detail: { address: currentUser.addr }
+        });
+        window.dispatchEvent(event);
+      } else {
+        localStorage.removeItem('flow_wallet_address');
+      }
     }
 
     checkUser()
