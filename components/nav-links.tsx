@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth, logout } from "@/lib/firebase/auth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -16,6 +17,7 @@ import { User, LayoutDashboard, History, LogOut } from "lucide-react";
 
 export default function NavLinks() {
   const { user } = useAuth();
+  const router = useRouter();
   
   // Get user initials for avatar
   const getUserInitials = () => {
@@ -31,6 +33,11 @@ export default function NavLinks() {
       return user.email[0].toUpperCase();
     }
     return "U";
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
   };
 
   return (
@@ -89,7 +96,7 @@ export default function NavLinks() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-600">
+            <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
               <LogOut className="mr-2 h-4 w-4" />
               <span>Sign Out</span>
             </DropdownMenuItem>
