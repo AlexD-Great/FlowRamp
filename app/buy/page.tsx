@@ -7,6 +7,7 @@ import { TransactionHistory } from "@/components/on-ramp/transaction-history"
 import { useAuth } from "@/lib/firebase/auth"
 import { useToast } from "@/components/ui/use-toast"
 import type { OnRampSession } from "@/lib/types/database"
+import { BackButton } from "@/components/ui/back-button"
 
 export default function BuyPage() {
   const { user } = useAuth();
@@ -180,6 +181,11 @@ export default function BuyPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       <div className="container mx-auto px-4 py-12">
+        {/* Back Button */}
+        <div className="mb-6">
+          <BackButton href="/" />
+        </div>
+        
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4 text-balance">Buy Flow Stablecoins</h1>
