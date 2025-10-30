@@ -5,6 +5,7 @@ import { WalletBalance } from "@/components/flow/wallet-balance"
 import { useState, useEffect } from "react"
 import { FCLClient, type FlowUser } from "@/lib/flow/fcl-client"
 import { Button } from "@/components/ui/button"
+import { BackButton } from "@/components/ui/back-button"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 
@@ -41,6 +42,11 @@ export default function WalletPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       <div className="container mx-auto px-4 py-12">
+        {/* Back Button */}
+        <div className="mb-6">
+          <BackButton href="/" />
+        </div>
+        
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4 text-balance">Flow Wallet</h1>
