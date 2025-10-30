@@ -26,7 +26,7 @@ export function FailedTransactions({ onRampSessions, offRampRequests, onRetry }:
       currency: s.fiatCurrency,
       stablecoin: s.stablecoin,
       walletAddress: s.walletAddress,
-      paymentRef: s.paymentRef,
+      paymentRef: s.paymentReference,
       created_at: s.created_at,
     })),
     ...failedOffRamp.map((r) => ({
@@ -38,7 +38,7 @@ export function FailedTransactions({ onRampSessions, offRampRequests, onRetry }:
       stablecoin: r.stablecoin,
       walletAddress: r.walletAddress,
       paymentRef: r.memo,
-      created_at: r.created_at,
+      created_at: r.createdAt,
     })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
