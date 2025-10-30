@@ -17,7 +17,6 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files
-.env*
 
 # vercel
 .vercel
@@ -30,7 +29,6 @@ emulator-account.pkey
 testnet-account.pkey
 *.pkey
 imports
-.env
 backend/.env
 backend/.env.local
 
@@ -49,3 +47,4 @@ PRODUCTION_SETUP_COMPLETE.md
 QUICK_START.md
 RENDER_DEPLOYMENT.md
 FIREBASE_FIX_CHECKLIST.md
+config.bat
