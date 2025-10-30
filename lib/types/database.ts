@@ -2,7 +2,7 @@
 
 export type SessionStatus = "created" | "paid" | "processing" | "completed" | "failed"
 
-export type OffRampStatus = "created" | "pending" | "processing" | "completed" | "failed"
+export type OffRampStatus = "created" | "pending" | "funded" | "processing" | "completed" | "failed"
 
 export interface OnRampSession {
   id: string
@@ -23,22 +23,19 @@ export interface OnRampSession {
 
 export interface OffRampRequest {
   id: string
+  userId?: string
   walletAddress: string
-  usdAmount: number
+  amount: number
   stablecoin: string
-  fiatAmount: number
-  fiatCurrency: string
-  bankAccount: {
-    accountNumber: string
-    accountName: string
-    bankName: string
-    bankCode?: string
-  }
+  deposit_address: string
+  memo: string
   status: OffRampStatus
+  payoutMethod?: "bank_transfer" | "mobile_money"
+  payoutDetails?: any
   txHash?: string
   paymentReference?: string
-  created_at: string
-  updated_at: string
+  createdAt: string
+  updatedAt?: string
   error?: string
 }
 
