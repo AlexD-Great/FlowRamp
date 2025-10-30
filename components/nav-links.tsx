@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/use-auth";
-import { logout } from "@/lib/firebase/auth";
+import { useAuth, logout } from "@/lib/firebase/auth";
 
 export default function NavLinks() {
   const { user } = useAuth();

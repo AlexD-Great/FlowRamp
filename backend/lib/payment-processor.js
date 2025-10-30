@@ -66,14 +66,15 @@ async function processPayment(sessionId) {
 }
 
 /**
- * Execute the blockchain transaction to transfer stablecoins
+ * Execute the blockchain transaction to transfer tokens
  * @param {Object} session - The on-ramp session data
  * @returns {Promise<string>} - The transaction hash
  */
 async function executeStablecoinTransfer(session) {
-  const { walletAddress, usdAmount, stablecoin } = session;
+  const { walletAddress, usdAmount, stablecoin, fiatAmount } = session;
 
-  console.log(`[PROCESSOR] Transferring ${usdAmount} ${stablecoin} to ${walletAddress}`);
+  console.log(`[PROCESSOR] User paid ${fiatAmount} NGN (≈$${usdAmount} USD)`);
+  console.log(`[PROCESSOR] Transferring ${usdAmount} FLOW tokens to ${walletAddress}`);
 
   // Configure FCL for testnet
   fcl.config({
@@ -117,13 +118,20 @@ async function executeStablecoinTransfer(session) {
       };
     };
 
-    console.log(`[PROCESSOR] Sending transaction to transfer ${usdAmount} FLOW to ${walletAddress}`);
+    // Calculate the actual FLOW amount to send
+    // For now, we're sending FLOW tokens equivalent to USD amount
+    // In production, you might want to use an oracle or fixed rate
+    const flowAmount = parseFloat(usdAmount);
+    const formattedAmount = flowAmount.toFixed(8);
+    
+    console.log(`[PROCESSOR] Sending ${formattedAmount} FLOW tokens to ${walletAddress}`);
+    console.log(`[PROCESSOR] Service account: ${process.env.FLOW_ACCOUNT_ADDRESS}`);
 
     // Execute the transaction
     const txId = await fcl.mutate({
       cadence: cadenceCode,
       args: (arg, t) => [
-        arg(usdAmount.toFixed(8), t.UFix64),
+        arg(formattedAmount, t.UFix64),
         arg(walletAddress, t.Address),
       ],
       proposer: serviceAccountAuth,
