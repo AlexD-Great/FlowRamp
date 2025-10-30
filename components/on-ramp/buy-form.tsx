@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -20,13 +20,18 @@ interface BuyFormProps {
     stablecoin: string
   }) => void
   isLoading?: boolean
+  defaultWalletAddress?: string
 }
 
-export function BuyForm({ onSubmit, isLoading }: BuyFormProps) {
-  const [walletAddress, setWalletAddress] = useState("")
+export function BuyForm({ onSubmit, isLoading, defaultWalletAddress }: BuyFormProps) {
+  const [walletAddress, setWalletAddress] = useState(defaultWalletAddress || "")
   const [fiatAmount, setFiatAmount] = useState("")
   const [fiatCurrency] = useState("NGN")
   const [stablecoin, setStablecoin] = useState<"fUSDC" | "fUSDT">("fUSDC")
+
+  useEffect(() => {
+    setWalletAddress(defaultWalletAddress || "")
+  }, [defaultWalletAddress])
 
   const calculation = fiatAmount ? calculateOnRampTotal(Number.parseFloat(fiatAmount), fiatCurrency) : null
 
@@ -70,7 +75,11 @@ export function BuyForm({ onSubmit, isLoading }: BuyFormProps) {
                 required
               />
             </div>
-            <p className="text-xs text-muted-foreground">Enter your Flow wallet address or connect your wallet</p>
+            {defaultWalletAddress ? (
+              <p className="text-xs text-green-600">✓ Wallet connected from wallet page</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Enter your Flow wallet address or <a href="/wallet" className="text-primary hover:underline">connect your wallet</a></p>
+            )}
           </div>
 
           {/* Amount Input */}
