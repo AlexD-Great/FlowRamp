@@ -224,48 +224,6 @@ export default function Dashboard() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-3">
-            {/* Stats Cards */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardDescription>Total Transactions</CardDescription>
-                <CardTitle className="text-3xl">{transactions.length}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600">
-                  {transactions.filter(t => t.type === "onramp").length} buy · {" "}
-                  {transactions.filter(t => t.type === "offramp").length} sell
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardDescription>Completed</CardDescription>
-                <CardTitle className="text-3xl">
-                  {transactions.filter(t => t.status === "completed").length}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-green-600">Successfully processed</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardDescription>Pending</CardDescription>
-                <CardTitle className="text-3xl">
-                  {transactions.filter(t => t.status === "pending" || t.status === "created").length}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-yellow-600">Awaiting processing</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
             <div className="grid gap-6 md:grid-cols-3">
               {/* Stats Cards */}
               <Card>
@@ -366,10 +324,10 @@ export default function Dashboard() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+        </TabsContent>
 
-          {/* Transactions Tab */}
-          <TabsContent value="transactions" className="space-y-6">
+        {/* Transactions Tab */}
+        <TabsContent value="transactions" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Transaction History</CardTitle>
@@ -417,10 +375,10 @@ export default function Dashboard() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+        </TabsContent>
 
-          {/* Wallet Tab */}
-          <TabsContent value="wallet" className="space-y-6">
+        {/* Wallet Tab */}
+        <TabsContent value="wallet" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Wallet Balance</CardTitle>
@@ -475,10 +433,10 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+        </TabsContent>
 
-          {/* Profile Tab */}
-          <TabsContent value="profile" className="space-y-6">
+        {/* Profile Tab */}
+        <TabsContent value="profile" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Profile Settings</CardTitle>
@@ -533,10 +491,10 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+        </TabsContent>
 
-          {/* KYC Tab */}
-          <TabsContent value="kyc" className="space-y-6">
+        {/* KYC Tab */}
+        <TabsContent value="kyc" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>KYC Verification</CardTitle>
@@ -638,9 +596,8 @@ export default function Dashboard() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
