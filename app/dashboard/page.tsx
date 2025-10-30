@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { updateProfile } from "firebase/auth";
 import { fetchOnRampSessions, fetchOffRampRequests, fetchWalletBalance, fetchKYCStatus } from "@/lib/api/dashboard";
+import { BackButton } from "@/components/ui/back-button";
 
 interface Transaction {
   id?: string;
@@ -196,27 +197,72 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Welcome, {displayName || user.email}</h1>
-            <p className="text-gray-600 mt-1">Manage your crypto on-ramp and off-ramp transactions</p>
-          </div>
-          <Button onClick={handleLogout} variant="outline">
-            Logout
-          </Button>
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Back Button */}
+      <div>
+        <BackButton href="/" />
+      </div>
+      
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Welcome, {displayName || user.email}</h1>
+          <p className="text-gray-600 mt-1">Manage your crypto on-ramp and off-ramp transactions</p>
         </div>
+        <Button onClick={handleLogout} variant="outline">
+          Logout
+        </Button>
+      </div>
 
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="transactions">Transactions</TabsTrigger>
-            <TabsTrigger value="wallet">Wallet</TabsTrigger>
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="kyc">KYC Status</TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="wallet">Wallet</TabsTrigger>
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="kyc">KYC Status</TabsTrigger>
+        </TabsList>
+
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-3">
+            {/* Stats Cards */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardDescription>Total Transactions</CardDescription>
+                <CardTitle className="text-3xl">{transactions.length}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600">
+                  {transactions.filter(t => t.type === "onramp").length} buy · {" "}
+                  {transactions.filter(t => t.type === "offramp").length} sell
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardDescription>Completed</CardDescription>
+                <CardTitle className="text-3xl">
+                  {transactions.filter(t => t.status === "completed").length}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-green-600">Successfully processed</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardDescription>Pending</CardDescription>
+                <CardTitle className="text-3xl">
+                  {transactions.filter(t => t.status === "pending" || t.status === "created").length}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-yellow-600">Awaiting processing</p>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
