@@ -7,6 +7,7 @@ const offRampRoutes = require("./routes/offramp");
 const swapRoutes = require("./routes/swap");
 const webhookRoutes = require("./routes/webhook");
 const walletRoutes = require("./routes/wallet");
+const walletVerificationRoutes = require("./routes/wallet-verification");
 const kycRoutes = require("./routes/kyc");
 
 const app = express();
@@ -58,6 +59,7 @@ app.use("/api/onramp", onRampRoutes);
 app.use("/api/offramp", offRampRoutes);
 app.use("/api/swap", swapRoutes);
 app.use("/api/wallet", walletRoutes);
+app.use("/api/wallet", walletVerificationRoutes);
 app.use("/api/kyc", kycRoutes);
 
 app.get("/", (req, res) => {

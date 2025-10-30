@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Wallet, LogOut, Copy, CheckCircle2 } from "lucide-react"
 import { FCLClient, type FlowUser } from "@/lib/flow/fcl-client"
+import { useAuth } from "@/lib/firebase/auth"
 
 export function WalletConnect() {
+  const { user: firebaseUser } = useAuth()
   const [user, setUser] = useState<FlowUser | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -31,6 +34,52 @@ export function WalletConnect() {
       const fcl = FCLClient.getInstance()
       const authenticatedUser = await fcl.authenticate()
       setUser(authenticatedUser)
+
+      // After successful authentication, request signature verification
+      if (authenticatedUser.loggedIn) {
+        setIsVerifying(true)
+        try {
+          const verification = await fcl.verifyWalletOwnership()
+          if (verification) {
+            console.log("Wallet ownership verified:", verification)
+            
+            // Send verification to backend if user is authenticated
+            if (firebaseUser) {
+              try {
+                const token = await firebaseUser.getIdToken()
+                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/wallet/verify`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    address: authenticatedUser.addr,
+                    signature: verification.signature,
+                    message: verification.message,
+                  }),
+                })
+                
+                if (response.ok) {
+                  console.log("Backend verification successful")
+                } else {
+                  console.warn("Backend verification failed, but wallet is still connected")
+                }
+              } catch (backendError) {
+                console.error("Backend verification error:", backendError)
+                // Continue anyway - signature was verified client-side
+              }
+            }
+          }
+        } catch (verifyError) {
+          console.error("Verification failed:", verifyError)
+          // User rejected signature or verification failed
+          // You can decide whether to disconnect or just warn the user
+          alert("Wallet verification was not completed. Please sign the message to verify wallet ownership.")
+        } finally {
+          setIsVerifying(false)
+        }
+      }
     } catch (error) {
       console.error("Wallet connection failed:", error)
       alert("Failed to connect wallet. Please try again.")
@@ -93,12 +142,14 @@ export function WalletConnect() {
         <CardDescription>Connect your Flow wallet to get started</CardDescription>
       </CardHeader>
       <CardContent>
-        <Button onClick={handleConnect} disabled={isConnecting} className="w-full" size="lg">
+        <Button onClick={handleConnect} disabled={isConnecting || isVerifying} className="w-full" size="lg">
           <Wallet className="mr-2 h-5 w-5" />
-          {isConnecting ? "Connecting..." : "Connect Flow Wallet"}
+          {isVerifying ? "Verifying Ownership..." : isConnecting ? "Connecting..." : "Connect Flow Wallet"}
         </Button>
         <p className="text-xs text-muted-foreground text-center mt-4">
-          Supports Blocto, Lilico, and other Flow wallets
+          {isVerifying 
+            ? "Please sign the message in your wallet to verify ownership"
+            : "Supports Blocto, Lilico, and other Flow wallets"}
         </p>
       </CardContent>
     </Card>

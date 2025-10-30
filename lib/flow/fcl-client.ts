@@ -124,6 +124,51 @@ export class FCLClient {
     }
   }
 
+  async verifyWalletOwnership(): Promise<{ signature: string; message: string; address: string } | null> {
+    await this.initialize()
+
+    try {
+      // Get current authenticated user - LIVE DATA from FCL
+      const user = await this.getCurrentUser()
+      if (!user.loggedIn || !user.addr) {
+        throw new Error("User must be authenticated first")
+      }
+
+      console.log("[WALLET-VERIFY] User authenticated:", user.addr)
+
+      // Create a message to sign for verification - LIVE TIMESTAMP
+      const timestamp = Date.now()
+      const message = `FlowRamp Wallet Verification\nTimestamp: ${timestamp}\nAddress: ${user.addr}`
+
+      console.log("[WALLET-VERIFY] Requesting signature for message:", message)
+
+      // Request user to sign the message - LIVE SIGNATURE from user's wallet
+      // This will trigger the actual wallet popup (Blocto/Lilico/etc)
+      const signatureResponse = await fcl.currentUser.signUserMessage(message)
+
+      console.log("[WALLET-VERIFY] Signature response received:", signatureResponse)
+
+      if (!signatureResponse || signatureResponse.length === 0) {
+        throw new Error("Signature not provided by user")
+      }
+
+      // Validate that signature contains required fields
+      if (!Array.isArray(signatureResponse)) {
+        throw new Error("Invalid signature format")
+      }
+
+      // Return the LIVE signature data and message for backend verification
+      return {
+        signature: JSON.stringify(signatureResponse),
+        message,
+        address: user.addr,
+      }
+    } catch (error) {
+      console.error("[WALLET-VERIFY] Verification failed:", error)
+      throw error
+    }
+  }
+
   subscribeToUser(callback: (user: FlowUser) => void): () => void {
     const unsubscribe = fcl.currentUser.subscribe((fclUser: any) => {
       callback({
