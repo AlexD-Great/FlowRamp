@@ -6,7 +6,13 @@ const ec_secp256k1 = new ec("secp256k1");
 const sign = (privateKey, message) => {
   const key = ec_secp256k1.keyFromPrivate(privateKey, "hex");
   const sig = key.sign(hash(message));
-  return Buffer.from(sig.toDER()).toString("hex");
+  
+  // Flow requires signature in raw format (r + s), not DER format
+  // Each component (r and s) should be exactly 32 bytes
+  const r = sig.r.toArrayLike(Buffer, "be", 32);
+  const s = sig.s.toArrayLike(Buffer, "be", 32);
+  
+  return Buffer.concat([r, s]).toString("hex");
 };
 
 const hash = (message) => {

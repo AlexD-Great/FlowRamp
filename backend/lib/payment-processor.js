@@ -102,6 +102,9 @@ async function executeStablecoinTransfer(session) {
       const cleanPrivateKey = privateKey.replace(/^0x/, "");
       const cleanAddress = accountAddress.replace(/^0x/, "");
 
+      console.log(`[PROCESSOR] Using service account: 0x${cleanAddress}`);
+      console.log(`[PROCESSOR] Private key length: ${cleanPrivateKey.length} chars`);
+
       return {
         ...account,
         tempId: `${cleanAddress}-service`,
@@ -109,10 +112,15 @@ async function executeStablecoinTransfer(session) {
         keyId: 0,
         signingFunction: async (signable) => {
           const { sign } = require("../lib/crypto");
+          console.log(`[PROCESSOR] Signing message...`);
+          
+          const signature = sign(cleanPrivateKey, signable.message);
+          console.log(`[PROCESSOR] Signature generated (length: ${signature.length} chars)`);
+          
           return {
             addr: fcl.withPrefix(cleanAddress),
             keyId: 0,
-            signature: sign(cleanPrivateKey, signable.message),
+            signature: signature,
           };
         },
       };

@@ -5,6 +5,7 @@ import "./globals.css";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import NavLinks from "@/components/nav-links";
+import { Toaster } from "@/components/ui/toaster";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -115,6 +116,7 @@ export default function RootLayout({
               </div>
             </div>
         </footer>
+        <Toaster />
         </AuthProvider>
       </body>
     </html>

@@ -4,25 +4,18 @@ import { useState, useEffect } from "react"
 import { BuyForm } from "@/components/on-ramp/buy-form"
 import { PaymentStatus } from "@/components/on-ramp/payment-status"
 import { TransactionHistory } from "@/components/on-ramp/transaction-history"
-import { useAuth } from "@/lib/firebase/auth" // Assuming you have a useAuth hook
-
-// Define the type for an on-ramp session
-interface OnRampSession {
-  id: string;
-  status: "created" | "paid" | "processing" | "completed" | "failed";
-  txHash?: string;
-  receiptCID?: string;
-  usdAmount: number;
-  stablecoin: string;
-  // Add other fields as necessary
-}
+import { useAuth } from "@/lib/firebase/auth"
+import { useToast } from "@/components/ui/use-toast"
+import type { OnRampSession } from "@/lib/types/database"
 
 export default function BuyPage() {
-  const { user } = useAuth(); // Get the authenticated user
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [currentSession, setCurrentSession] = useState<OnRampSession | null>(null)
   const [sessions, setSessions] = useState<OnRampSession[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [jwt, setJwt] = useState<string | null>(null);
+  const [lastNotifiedStatus, setLastNotifiedStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -76,6 +69,23 @@ export default function BuyPage() {
       if (response.ok) {
         const data = await response.json()
         setCurrentSession(data)
+
+        // Show toast notifications for status changes
+        if (data.status === "completed" && lastNotifiedStatus !== "completed") {
+          setLastNotifiedStatus("completed");
+          toast({
+            title: "🎉 Purchase Successful!",
+            description: `${data.usdAmount.toFixed(2)} FLOW tokens have been sent to your wallet. Check your wallet balance!`,
+            variant: "default",
+          });
+        } else if (data.status === "failed" && lastNotifiedStatus !== "failed") {
+          setLastNotifiedStatus("failed");
+          toast({
+            title: "❌ Transaction Failed",
+            description: "Your purchase could not be completed. Please contact support if you were charged.",
+            variant: "destructive",
+          });
+        }
 
         // Reload history when completed
         if (data.status === "completed" || data.status === "failed") {
@@ -142,6 +152,7 @@ export default function BuyPage() {
 
   const handleReset = () => {
     setCurrentSession(null)
+    setLastNotifiedStatus(null)
     loadSessions()
   }
 
