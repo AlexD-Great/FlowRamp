@@ -1,4 +1,5 @@
 const { sendTransaction, executeScript, t } = require("./flow-client");
+const { sign, hash } = require("./crypto");
 const fs = require("fs");
 const path = require("path");
 
@@ -23,28 +24,36 @@ class ForteActionsService {
   async executeOnRampAction(params) {
     try {
       const { beneficiary, amountUSD, sessionId } = params;
-      // In a real implementation, the backend would generate a secure signature.
-      const backendSig = "mock-signature"; // Placeholder
+      
+      // Generate secure signature for backend authorization
+      const messagePayload = `${beneficiary}:${amountUSD}:${sessionId}:${Date.now()}`;
+      const messageHash = hash(messagePayload);
+      const backendSig = sign(process.env.FLOW_PRIVATE_KEY, messageHash.toString('hex'));
 
       const cadence = readCadence("execute_on_ramp_with_actions");
       const args = [
         [beneficiary, t.Address],
         [amountUSD.toFixed(8), t.UFix64],
         [sessionId, t.String],
-        [backendSig, t.String], // Adjusted for simplicity, use Array(t.UInt8) for real sigs
+        [backendSig, t.String],
       ];
 
       const txHash = await sendTransaction(cadence, args);
+      
+      console.log(`✅ On-Ramp Action executed: ${txHash} for ${beneficiary}`);
+      
       return {
         success: true,
         txHash,
         actionId: `action_onramp_${Date.now()}`,
+        timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      console.error("On-Ramp Action failed:", error);
+      console.error("❌ On-Ramp Action failed:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
       };
     }
   }
