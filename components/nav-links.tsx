@@ -77,7 +77,7 @@ export default function NavLinks() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/dashboard?tab=history" className="cursor-pointer">
+              <Link href="/dashboard?tab=transactions" className="cursor-pointer">
                 <History className="mr-2 h-4 w-4" />
                 <span>Transaction History</span>
               </Link>
