@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import NavLinks from "@/components/nav-links";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,6 +33,9 @@ export default function RootLayout({
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="antialiased">
         <AuthProvider>
+          <a href="#main-content" className="skip-to-main">
+            Skip to main content
+          </a>
           <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
             <div className="container mx-auto px-4">
               <div className="flex h-16 items-center justify-between">
@@ -46,7 +50,9 @@ export default function RootLayout({
             </div>
         </nav>
 
-        {children}
+        <main id="main-content">
+          {children}
+        </main>
 
           <footer className="border-t bg-muted/30 mt-24">
             <div className="container mx-auto px-4 py-12">
@@ -117,6 +123,7 @@ export default function RootLayout({
             </div>
         </footer>
         <Toaster />
+        <SonnerToaster position="top-right" richColors />
         </AuthProvider>
       </body>
     </html>

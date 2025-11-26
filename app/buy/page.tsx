@@ -5,13 +5,12 @@ import { BuyForm } from "@/components/on-ramp/buy-form"
 import { PaymentStatus } from "@/components/on-ramp/payment-status"
 import { TransactionHistory } from "@/components/on-ramp/transaction-history"
 import { useAuth } from "@/lib/firebase/auth"
-import { useToast } from "@/components/ui/use-toast"
+import { toast } from "sonner"
 import type { OnRampSession } from "@/lib/types/database"
 import { BackButton } from "@/components/ui/back-button"
 
 export default function BuyPage() {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [currentSession, setCurrentSession] = useState<OnRampSession | null>(null)
   const [sessions, setSessions] = useState<OnRampSession[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -95,17 +94,13 @@ export default function BuyPage() {
         // Show toast notifications for status changes
         if (data.status === "completed" && lastNotifiedStatus !== "completed") {
           setLastNotifiedStatus("completed");
-          toast({
-            title: "🎉 Purchase Successful!",
+          toast.success("Purchase Successful!", {
             description: `${data.usdAmount.toFixed(2)} FLOW tokens have been sent to your wallet. Check your wallet balance!`,
-            variant: "default",
           });
         } else if (data.status === "failed" && lastNotifiedStatus !== "failed") {
           setLastNotifiedStatus("failed");
-          toast({
-            title: "❌ Transaction Failed",
+          toast.error("Transaction Failed", {
             description: "Your purchase could not be completed. Please contact support if you were charged.",
-            variant: "destructive",
           });
         }
 
@@ -126,7 +121,7 @@ export default function BuyPage() {
     stablecoin: string
   }) => {
     if (!jwt) {
-      alert("Please sign in to continue.");
+      toast.error("Please sign in to continue.");
       return;
     }
     setIsLoading(true)
@@ -166,7 +161,7 @@ export default function BuyPage() {
       }
     } catch (error) {
       console.error("[v0] Failed to create session:", error)
-      alert("Failed to create session. Please try again.")
+      toast.error("Failed to create session. Please try again.")
     } finally {
       setIsLoading(false)
     }
