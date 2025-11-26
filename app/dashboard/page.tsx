@@ -311,7 +311,7 @@ function DashboardContent() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-3" id="dashboard-stats">
               {/* Stats Cards */}
               <Card>
                 <CardHeader className="pb-3">
@@ -352,7 +352,7 @@ function DashboardContent() {
             </div>
 
             {/* Quick Actions */}
-            <Card>
+            <Card id="dashboard-quick-actions">
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
                 <CardDescription>Navigate to key features</CardDescription>

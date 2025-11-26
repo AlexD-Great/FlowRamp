@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth, logout } from "@/lib/firebase/auth";
+import { useTour } from "@/lib/contexts/tour-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -13,13 +14,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, LayoutDashboard, History, LogOut } from "lucide-react";
+import { User, LayoutDashboard, History, LogOut, HelpCircle } from "lucide-react";
 import MobileNav from "@/components/mobile-nav";
 
 export default function NavLinks() {
   const { user } = useAuth();
   const router = useRouter();
-  
+  const { startTour } = useTour();
+
+  const handleStartTour = () => {
+    router.push("/");
+    // Small delay to ensure we're on home page before starting tour
+    setTimeout(() => {
+      startTour();
+    }, 300);
+  };
+
   // Get user initials for avatar
   const getUserInitials = () => {
     if (user?.displayName) {
@@ -100,6 +110,10 @@ export default function NavLinks() {
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile Settings</span>
                 </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleStartTour} className="cursor-pointer">
+                <HelpCircle className="mr-2 h-4 w-4" />
+                <span>Take a Tour</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">

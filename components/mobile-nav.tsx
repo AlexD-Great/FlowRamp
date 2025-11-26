@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth, logout } from "@/lib/firebase/auth";
+import { useTour } from "@/lib/contexts/tour-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Sheet,
@@ -23,13 +24,23 @@ import {
   ShoppingCart,
   Banknote,
   Wallet,
-  Shield
+  Shield,
+  HelpCircle
 } from "lucide-react";
 
 export default function MobileNav() {
   const { user } = useAuth();
   const router = useRouter();
+  const { startTour } = useTour();
   const [open, setOpen] = useState(false);
+
+  const handleStartTour = () => {
+    setOpen(false);
+    router.push("/");
+    setTimeout(() => {
+      startTour();
+    }, 300);
+  };
 
   const getUserInitials = () => {
     if (user?.displayName) {
@@ -151,6 +162,14 @@ export default function MobileNav() {
                 >
                   <User className="h-5 w-5 text-muted-foreground" />
                   <span className="font-medium">Profile Settings</span>
+                </button>
+
+                <button
+                  onClick={handleStartTour}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
+                >
+                  <HelpCircle className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium">Take a Tour</span>
                 </button>
               </nav>
             </div>

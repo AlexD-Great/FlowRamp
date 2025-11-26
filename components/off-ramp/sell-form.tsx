@@ -70,7 +70,7 @@ export function SellForm({ onSubmit, isLoading }: SellFormProps) {
   }
 
   return (
-    <Card className="w-full max-w-lg">
+    <Card className="w-full max-w-lg" id="sell-form-card">
       <CardHeader>
         <CardTitle className="text-2xl">Sell Stablecoin</CardTitle>
         <CardDescription>Convert your Flow stablecoins to Nigerian Naira</CardDescription>
@@ -127,7 +127,7 @@ export function SellForm({ onSubmit, isLoading }: SellFormProps) {
           </div>
 
           {/* Payout Method */}
-          <div className="space-y-3">
+          <div className="space-y-3" id="sell-payout-method">
             <Label>Payout Method</Label>
             <RadioGroup value={payoutMethod} onValueChange={(v) => setPayoutMethod(v as any)}>
               <div className="flex items-center space-x-2 rounded-lg border p-4 cursor-pointer hover:bg-muted/50">
