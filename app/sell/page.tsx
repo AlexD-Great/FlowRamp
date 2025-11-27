@@ -7,6 +7,7 @@ import { WithdrawalStatus } from "@/components/off-ramp/withdrawal-status"
 import { WithdrawalHistory } from "@/components/off-ramp/withdrawal-history"
 import { useAuth } from "@/lib/firebase/auth"
 import { BackButton } from "@/components/ui/back-button"
+import { toast } from "sonner"
 import * as fcl from "@onflow/fcl";
 import * as t from "@onflow/types";
 import type { OffRampRequest } from "@/lib/types/database"
@@ -104,7 +105,7 @@ export default function SellPage() {
     payoutDetails: any
   }) => {
     if (!jwt) {
-      alert("Please sign in to continue.");
+      toast.error("Please sign in to continue.");
       return;
     }
     setIsLoading(true)
@@ -133,7 +134,7 @@ export default function SellPage() {
       }
     } catch (error) {
       console.error("[v0] Failed to create request:", error)
-      alert("Failed to create withdrawal request. Please try again.")
+      toast.error("Failed to create withdrawal request. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -151,7 +152,7 @@ export default function SellPage() {
 
   const handleInitiateTransaction = async () => {
     if (!currentRequest || !jwt) {
-      alert("Cannot initiate transaction. Request details are missing.");
+      toast.error("Cannot initiate transaction. Request details are missing.");
       return;
     }
     setIsLoading(true);
@@ -186,7 +187,7 @@ export default function SellPage() {
 
     } catch (error) {
       console.error("Failed to initiate transaction:", error);
-      alert("Failed to send transaction. Please try again.");
+      toast.error("Failed to send transaction. Please try again.");
     } finally {
       setIsLoading(false);
     }

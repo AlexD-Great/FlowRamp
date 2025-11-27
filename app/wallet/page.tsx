@@ -57,11 +57,15 @@ export default function WalletPage() {
 
         {/* Main Content */}
         <div className="max-w-2xl mx-auto space-y-6">
-          <WalletConnect />
+          <div id="wallet-connect-card">
+            <WalletConnect />
+          </div>
 
           {user?.loggedIn && user.addr && (
             <>
-              <WalletBalance address={user.addr} />
+              <div id="wallet-balance-card">
+                <WalletBalance address={user.addr} />
+              </div>
 
               {/* Quick Actions */}
               <div className="grid md:grid-cols-2 gap-4">

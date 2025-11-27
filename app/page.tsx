@@ -23,13 +23,13 @@ export default function HomePage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-              <Button asChild size="lg" className="text-lg h-12 px-8">
+              <Button asChild size="lg" className="text-lg h-12 px-8" id="hero-cta-buy">
                 <Link href="/buy">
                   Buy Stablecoins
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className="text-lg h-12 px-8 bg-transparent">
+              <Button asChild variant="outline" size="lg" className="text-lg h-12 px-8 bg-transparent" id="hero-cta-sell">
                 <Link href="/sell">Sell Stablecoins</Link>
               </Button>
             </div>
@@ -86,7 +86,7 @@ export default function HomePage() {
       </section>
 
       {/* How It Works */}
-      <section className="py-24">
+      <section className="py-24" id="how-it-works">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">How It Works</h2>

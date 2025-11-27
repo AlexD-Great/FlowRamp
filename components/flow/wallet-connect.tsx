@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Wallet, LogOut, Copy, CheckCircle2 } from "lucide-react"
 import { FCLClient, type FlowUser } from "@/lib/flow/fcl-client"
 import { useAuth } from "@/lib/firebase/auth"
+import { toast } from "sonner"
 
 export function WalletConnect() {
   const { user: firebaseUser } = useAuth()
@@ -75,14 +76,14 @@ export function WalletConnect() {
           console.error("Verification failed:", verifyError)
           // User rejected signature or verification failed
           // You can decide whether to disconnect or just warn the user
-          alert("Wallet verification was not completed. Please sign the message to verify wallet ownership.")
+          toast.error("Wallet verification was not completed. Please sign the message to verify wallet ownership.")
         } finally {
           setIsVerifying(false)
         }
       }
     } catch (error) {
       console.error("Wallet connection failed:", error)
-      alert("Failed to connect wallet. Please try again.")
+      toast.error("Failed to connect wallet. Please try again.")
     } finally {
       setIsConnecting(false)
     }

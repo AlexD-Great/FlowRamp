@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signUpWithEmail } from "@/lib/firebase/auth";
+import { useTour } from "@/lib/contexts/tour-context";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/ui/back-button";
 import {
@@ -21,6 +22,7 @@ export default function SignUp() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { setShouldStartTour } = useTour();
 
   const handleSignUp = async () => {
     if (!email || !password) {
@@ -32,13 +34,16 @@ export default function SignUp() {
     setError("");
 
     const result = await signUpWithEmail(email, password);
-    
+
     if (result.user) {
-      router.push("/dashboard");
+      // Trigger the onboarding tour for new users
+      setShouldStartTour(true);
+      // Redirect to home page where the tour will start
+      router.push("/");
     } else {
       setError(result.error || "Failed to create account");
     }
-    
+
     setLoading(false);
   };
 

@@ -54,7 +54,7 @@ export function BuyForm({ onSubmit, isLoading, defaultWalletAddress }: BuyFormPr
   }
 
   return (
-    <Card className="w-full max-w-lg">
+    <Card className="w-full max-w-lg" id="buy-form-card">
       <CardHeader>
         <CardTitle className="text-2xl">Buy Stablecoin</CardTitle>
         <CardDescription>Convert your Nigerian Naira to Flow stablecoins instantly</CardDescription>
@@ -62,7 +62,7 @@ export function BuyForm({ onSubmit, isLoading, defaultWalletAddress }: BuyFormPr
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Wallet Address */}
-          <div className="space-y-2">
+          <div className="space-y-2" id="buy-wallet-input">
             <Label htmlFor="wallet">Flow Wallet Address</Label>
             <div className="relative">
               <Wallet className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -83,7 +83,7 @@ export function BuyForm({ onSubmit, isLoading, defaultWalletAddress }: BuyFormPr
           </div>
 
           {/* Amount Input */}
-          <div className="space-y-2">
+          <div className="space-y-2" id="buy-amount-input">
             <Label htmlFor="amount">Amount</Label>
             <div className="flex gap-2">
               <div className="relative flex-1">

@@ -8,9 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { updateProfile } from "firebase/auth";
 import { fetchOnRampSessions, fetchOffRampRequests, fetchWalletBalance, fetchKYCStatus } from "@/lib/api/dashboard";
 import { BackButton } from "@/components/ui/back-button";
+import { toast } from "sonner";
+import { DashboardSkeleton, TransactionListSkeleton } from "@/components/ui/transaction-skeleton";
+import { Download } from "lucide-react";
 
 interface Transaction {
   id?: string;
@@ -40,6 +44,11 @@ function DashboardContent() {
   const [walletAddress, setWalletAddress] = useState("");
   const [loadingBalance, setLoadingBalance] = useState(false);
   const [kycStatus, setKycStatus] = useState<"not_started" | "pending" | "approved" | "rejected">("not_started");
+
+  // Filter and sort state
+  const [filterType, setFilterType] = useState<"all" | "onramp" | "offramp">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "completed" | "pending" | "failed">("all");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "amount_high" | "amount_low">("newest");
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -113,7 +122,7 @@ function DashboardContent() {
 
   const handleLoadBalance = async () => {
     if (!user || !walletAddress || !walletAddress.startsWith("0x")) {
-      alert("Please enter a valid Flow address (starts with 0x)");
+      toast.error("Please enter a valid Flow address (starts with 0x)");
       return;
     }
 
@@ -123,7 +132,7 @@ function DashboardContent() {
       setWalletBalance(balance);
     } catch (error) {
       console.error("Error loading balance:", error);
-      alert("Failed to load wallet balance");
+      toast.error("Failed to load wallet balance");
     } finally {
       setLoadingBalance(false);
     }
@@ -141,10 +150,10 @@ function DashboardContent() {
     try {
       await updateProfile(user, { displayName });
       setEditingProfile(false);
-      alert("Profile updated successfully!");
+      toast.success("Profile updated successfully!");
     } catch (error) {
       console.error("Error updating profile:", error);
-      alert("Failed to update profile");
+      toast.error("Failed to update profile");
     }
   };
 
@@ -191,13 +200,81 @@ function DashboardContent() {
     }
   };
 
+  // Filtered and sorted transactions
+  const filteredTransactions = transactions
+    .filter((tx) => {
+      if (filterType !== "all" && tx.type !== filterType) return false;
+      if (filterStatus !== "all") {
+        const txStatus = tx.status.toLowerCase();
+        if (filterStatus === "pending" && !["pending", "created", "processing"].includes(txStatus)) return false;
+        if (filterStatus === "completed" && txStatus !== "completed") return false;
+        if (filterStatus === "failed" && txStatus !== "failed") return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      switch (sortOrder) {
+        case "newest":
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case "oldest":
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case "amount_high":
+          return b.amount - a.amount;
+        case "amount_low":
+          return a.amount - b.amount;
+        default:
+          return 0;
+      }
+    });
+
+  // Export transactions to CSV
+  const exportToCSV = () => {
+    if (filteredTransactions.length === 0) {
+      toast.error("No transactions to export");
+      return;
+    }
+
+    const headers = ["Type", "Status", "Amount", "Stablecoin", "Fiat Amount (NGN)", "Date", "Transaction Hash"];
+    const rows = filteredTransactions.map((tx) => [
+      tx.type === "onramp" ? "Buy" : "Sell",
+      tx.status,
+      tx.amount.toFixed(2),
+      tx.stablecoin,
+      tx.fiatAmount ? tx.fiatAmount.toFixed(2) : "",
+      new Date(tx.createdAt).toISOString(),
+      tx.txHash || ""
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `flowramp-transactions-${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success("Transactions exported successfully");
+  };
+
   if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-lg">Loading dashboard...</p>
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+            <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+          </div>
+          <div className="h-10 w-24 bg-muted animate-pulse rounded" />
         </div>
+        <div className="h-10 w-full bg-muted animate-pulse rounded mb-6" />
+        <DashboardSkeleton />
       </div>
     );
   }
@@ -224,17 +301,17 @@ function DashboardContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="wallet">Wallet</TabsTrigger>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="kyc">KYC Status</TabsTrigger>
+        <TabsList className="flex w-full overflow-x-auto no-scrollbar md:grid md:grid-cols-5">
+          <TabsTrigger value="overview" className="flex-shrink-0">Overview</TabsTrigger>
+          <TabsTrigger value="transactions" className="flex-shrink-0">Transactions</TabsTrigger>
+          <TabsTrigger value="wallet" className="flex-shrink-0">Wallet</TabsTrigger>
+          <TabsTrigger value="profile" className="flex-shrink-0">Profile</TabsTrigger>
+          <TabsTrigger value="kyc" className="flex-shrink-0">KYC Status</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-3" id="dashboard-stats">
               {/* Stats Cards */}
               <Card>
                 <CardHeader className="pb-3">
@@ -275,7 +352,7 @@ function DashboardContent() {
             </div>
 
             {/* Quick Actions */}
-            <Card>
+            <Card id="dashboard-quick-actions">
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
                 <CardDescription>Navigate to key features</CardDescription>
@@ -343,25 +420,89 @@ function DashboardContent() {
                 <CardTitle>Transaction History</CardTitle>
                 <CardDescription>All your on-ramp and off-ramp transactions</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {/* Filter Controls */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b">
+                  <div className="flex flex-wrap gap-3">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm text-muted-foreground">Type:</Label>
+                      <Select value={filterType} onValueChange={(v) => setFilterType(v as typeof filterType)}>
+                        <SelectTrigger className="w-[120px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="onramp">Buy</SelectItem>
+                          <SelectItem value="offramp">Sell</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm text-muted-foreground">Status:</Label>
+                      <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}>
+                        <SelectTrigger className="w-[120px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="failed">Failed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm text-muted-foreground">Sort:</Label>
+                      <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as typeof sortOrder)}>
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="newest">Newest First</SelectItem>
+                          <SelectItem value="oldest">Oldest First</SelectItem>
+                          <SelectItem value="amount_high">Amount High</SelectItem>
+                          <SelectItem value="amount_low">Amount Low</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={exportToCSV} disabled={transactions.length === 0}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
+
+                {/* Results Count */}
+                <p className="text-sm text-muted-foreground">
+                  Showing {filteredTransactions.length} of {transactions.length} transactions
+                </p>
+
                 {transactions.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-gray-500 mb-4">No transactions yet</p>
                     <Button onClick={() => router.push("/buy")}>Make your first purchase</Button>
                   </div>
+                ) : filteredTransactions.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500 mb-4">No transactions match your filters</p>
+                    <Button variant="outline" onClick={() => {
+                      setFilterType("all");
+                      setFilterStatus("all");
+                    }}>Clear Filters</Button>
+                  </div>
                 ) : (
                   <div className="space-y-3">
-                    {transactions.map((tx, index) => (
-                      <div key={tx.id || index} className="p-4 border rounded-lg hover:bg-gray-50">
+                    {filteredTransactions.map((tx, index) => (
+                      <div key={tx.id || index} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
-                              <span className="font-semibold capitalize">{tx.type}</span>
+                              <span className="font-semibold capitalize">{tx.type === "onramp" ? "Buy" : "Sell"}</span>
                               <span className={`text-xs px-2 py-1 rounded ${getStatusColor(tx.status)}`}>
                                 {tx.status}
                               </span>
                             </div>
-                            <div className="space-y-1 text-sm text-gray-600">
+                            <div className="space-y-1 text-sm text-muted-foreground">
                               <p>Amount: {tx.amount.toFixed(2)} {tx.stablecoin}</p>
                               {tx.fiatAmount && <p>Fiat: ₦{tx.fiatAmount.toFixed(2)}</p>}
                               <p>Date: {new Date(tx.createdAt).toLocaleString()}</p>
@@ -376,7 +517,7 @@ function DashboardContent() {
                             <p className={`text-lg font-bold ${tx.type === "onramp" ? "text-green-600" : "text-red-600"}`}>
                               {tx.type === "onramp" ? "+" : "-"}{tx.amount.toFixed(2)}
                             </p>
-                            <p className="text-sm text-gray-600">{tx.stablecoin}</p>
+                            <p className="text-sm text-muted-foreground">{tx.stablecoin}</p>
                           </div>
                         </div>
                       </div>
