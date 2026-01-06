@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth, logout } from "@/lib/firebase/auth";
 import { useTour } from "@/lib/contexts/tour-context";
+import { useLandingVersion, LandingVersion } from "@/lib/contexts/landing-version-context";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Sheet,
@@ -24,15 +25,28 @@ import {
   ShoppingCart,
   Banknote,
   Wallet,
-  Shield,
-  HelpCircle
+  Shield as ShieldIcon,
+  HelpCircle,
+  Palette,
+  Zap,
+  Sparkles,
+  Check
 } from "lucide-react";
+
+const versionIcons: Record<LandingVersion, React.ElementType> = {
+  v1: ShieldIcon,
+  v2: Zap,
+  v3: Sparkles,
+};
 
 export default function MobileNav() {
   const { user } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const { startTour } = useTour();
+  const { version, setVersion, versionLabels } = useLandingVersion();
   const [open, setOpen] = useState(false);
+  const isHomePage = pathname === "/";
 
   const handleStartTour = () => {
     setOpen(false);
@@ -85,6 +99,39 @@ export default function MobileNav() {
           </SheetTitle>
         </SheetHeader>
 
+        {/* Landing Page Version Switcher - Only on home page */}
+        {isHomePage && (
+          <div className="border-b py-4">
+            <p className="px-4 text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+              <Palette className="h-4 w-4" />
+              Landing Page Style
+            </p>
+            <div className="flex flex-col gap-1">
+              {(Object.keys(versionLabels) as LandingVersion[]).map((v) => {
+                const Icon = versionIcons[v];
+                const isActive = version === v;
+                return (
+                  <button
+                    key={v}
+                    onClick={() => setVersion(v)}
+                    className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors text-left ${
+                      isActive ? "bg-primary/10" : "hover:bg-muted"
+                    }`}
+                  >
+                    <div className={`p-1.5 rounded-md ${isActive ? "bg-primary/20" : "bg-muted"}`}>
+                      <Icon className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                    </div>
+                    <span className={`font-medium text-sm ${isActive ? "text-primary" : ""}`}>
+                      {versionLabels[v]}
+                    </span>
+                    {isActive && <Check className="h-4 w-4 text-primary ml-auto" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <nav className="flex flex-col gap-1 py-4">
           {/* Main Navigation */}
           <button
@@ -115,7 +162,7 @@ export default function MobileNav() {
             onClick={() => handleNavigation("/admin")}
             className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
           >
-            <Shield className="h-5 w-5 text-muted-foreground" />
+            <ShieldIcon className="h-5 w-5 text-muted-foreground" />
             <span className="font-medium">Admin</span>
           </button>
         </nav>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth, logout } from "@/lib/firebase/auth";
 import { useTour } from "@/lib/contexts/tour-context";
@@ -16,11 +16,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { User, LayoutDashboard, History, LogOut, HelpCircle } from "lucide-react";
 import MobileNav from "@/components/mobile-nav";
+import LandingVersionSwitcher from "@/components/landing-version-switcher";
 
 export default function NavLinks() {
   const { user } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const { startTour } = useTour();
+  const isHomePage = pathname === "/";
 
   const handleStartTour = () => {
     router.push("/");
@@ -58,6 +61,7 @@ export default function NavLinks() {
 
       {/* Desktop Navigation */}
       <div className="hidden md:flex items-center gap-6">
+        {isHomePage && <LandingVersionSwitcher />}
         <Link href="/buy" className="text-sm font-medium hover:text-primary transition-colors">
           Buy
         </Link>
