@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/firebase/auth"
 import { toast } from "sonner"
 import type { OnRampSession } from "@/lib/types/database"
 import { BackButton } from "@/components/ui/back-button"
+import { FCLClient } from "@/lib/flow/fcl-client"
 
 export default function BuyPage() {
   const { user } = useAuth();
@@ -23,25 +24,46 @@ export default function BuyPage() {
       user.getIdToken().then(setJwt);
       loadSessions();
     }
-    
-    // Load connected wallet from localStorage
+
+    // Check for connected wallet from localStorage first
     const savedWallet = localStorage.getItem('flow_wallet_address');
     if (savedWallet) {
       setConnectedWallet(savedWallet);
+    } else {
+      // If not in localStorage, check FCL directly for existing session
+      const checkFCLWallet = async () => {
+        try {
+          const fcl = FCLClient.getInstance();
+          await fcl.initialize();
+          const currentUser = await fcl.getCurrentUser();
+          if (currentUser.loggedIn && currentUser.addr) {
+            setConnectedWallet(currentUser.addr);
+            localStorage.setItem('flow_wallet_address', currentUser.addr);
+          }
+        } catch (error) {
+          console.error("Failed to check FCL wallet:", error);
+        }
+      };
+      checkFCLWallet();
     }
-    
+
     // Listen for wallet connection events
     const handleWalletConnect = (e: CustomEvent) => {
       if (e.detail?.address) {
         setConnectedWallet(e.detail.address);
-        localStorage.setItem('flow_wallet_address', e.detail.address);
       }
     };
-    
+
+    const handleWalletDisconnect = () => {
+      setConnectedWallet(null);
+    };
+
     window.addEventListener('wallet:connected' as any, handleWalletConnect);
-    
+    window.addEventListener('wallet:disconnected' as any, handleWalletDisconnect);
+
     return () => {
       window.removeEventListener('wallet:connected' as any, handleWalletConnect);
+      window.removeEventListener('wallet:disconnected' as any, handleWalletDisconnect);
     };
   }, [user]);
 

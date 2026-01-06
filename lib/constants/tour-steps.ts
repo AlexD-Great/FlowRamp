@@ -146,10 +146,10 @@ export const tourSteps: TourStep[] = [
 
   // Tour Complete
   {
-    page: "/dashboard",
+    page: "/buy",
     popover: {
       title: "You're All Set!",
-      description: "You now know the basics of FlowRamp. Start by connecting your wallet and making your first transaction!",
+      description: "You now know the basics of FlowRamp. Ready to make your first purchase? Enter your details above to get started!",
       side: "over",
       align: "center",
     },

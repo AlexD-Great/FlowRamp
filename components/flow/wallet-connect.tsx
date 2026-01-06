@@ -21,8 +21,13 @@ export function WalletConnect() {
       const fcl = FCLClient.getInstance()
       await fcl.initialize()
       const currentUser = await fcl.getCurrentUser()
-      if (currentUser.loggedIn) {
+      if (currentUser.loggedIn && currentUser.addr) {
         setUser(currentUser)
+        // Save existing session to localStorage
+        localStorage.setItem('flow_wallet_address', currentUser.addr)
+        window.dispatchEvent(new CustomEvent('wallet:connected', {
+          detail: { address: currentUser.addr }
+        }))
       }
     }
 
@@ -35,6 +40,14 @@ export function WalletConnect() {
       const fcl = FCLClient.getInstance()
       const authenticatedUser = await fcl.authenticate()
       setUser(authenticatedUser)
+
+      // After successful authentication, save wallet address and dispatch event
+      if (authenticatedUser.loggedIn && authenticatedUser.addr) {
+        localStorage.setItem('flow_wallet_address', authenticatedUser.addr)
+        window.dispatchEvent(new CustomEvent('wallet:connected', {
+          detail: { address: authenticatedUser.addr }
+        }))
+      }
 
       // After successful authentication, request signature verification
       if (authenticatedUser.loggedIn) {
@@ -94,6 +107,8 @@ export function WalletConnect() {
       const fcl = FCLClient.getInstance()
       await fcl.unauthenticate()
       setUser(null)
+      localStorage.removeItem('flow_wallet_address')
+      window.dispatchEvent(new CustomEvent('wallet:disconnected'))
     } catch (error) {
       console.error("Wallet disconnection failed:", error)
     }

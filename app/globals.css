@@ -12,6 +12,9 @@
     --color-card: #1e293b; /* Slate 800 */
     --color-card-foreground: #f8fafc;
 
+    --color-popover: #1e293b; /* Slate 800 */
+    --color-popover-foreground: #f8fafc;
+
     --color-muted: #1e293b;
     --color-muted-foreground: #94a3b8; /* Slate 400 */
 
