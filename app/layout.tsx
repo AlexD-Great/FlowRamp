@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "@/lib/firebase/auth";
 import { TourProvider } from "@/lib/contexts/tour-context";
+import { LandingVersionProvider } from "@/lib/contexts/landing-version-context";
 import { TourDriver } from "@/components/guided-tour/tour-driver";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -35,6 +36,7 @@ export default function RootLayout({
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="antialiased">
         <AuthProvider>
+          <LandingVersionProvider>
           <TourProvider>
             <TourDriver />
             <a href="#main-content" className="skip-to-main">
@@ -129,6 +131,7 @@ export default function RootLayout({
         <Toaster />
             <SonnerToaster position="top-right" richColors />
           </TourProvider>
+          </LandingVersionProvider>
         </AuthProvider>
       </body>
     </html>
