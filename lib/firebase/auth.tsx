@@ -1,15 +1,16 @@
 "use client"
 
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
-import { 
-  getAuth, 
+import {
+  getAuth,
   onAuthStateChanged as firebaseOnAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
   signOut,
-  User 
+  sendPasswordResetEmail,
+  User
 } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import firebaseConfig from "./config";
@@ -112,5 +113,14 @@ export const logout = async () => {
     return { error: null };
   } catch (error: any) {
     return { error: error.message };
+  }
+};
+
+export const resetPassword = async (email: string) => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+    return { success: true, error: null };
+  } catch (error: any) {
+    return { success: false, error: error.message };
   }
 };
