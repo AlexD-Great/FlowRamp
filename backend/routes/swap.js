@@ -51,16 +51,33 @@ router.get("/quote", async (req, res) => {
  */
 router.post("/execute", (req, res) => {
   try {
-    const { fromToken, toToken, fromAmount, minAmountOut } = req.body;
+    const { fromToken, toToken, fromAmount, minAmountOut, pathKeys } = req.body;
 
     if (!fromToken || !toToken || !fromAmount || !minAmountOut) {
       return res.status(400).json({ error: "Missing required body parameters." });
     }
 
+    // Validate token identifiers
+    const supportedTokens = ["FLOW", "fUSDC", "fUSDT", "FUSD"];
+    if (!supportedTokens.includes(fromToken) || !supportedTokens.includes(toToken)) {
+      return res.status(400).json({ 
+        error: "Unsupported token. Supported tokens: " + supportedTokens.join(", ") 
+      });
+    }
+
+    if (fromToken === toToken) {
+      return res.status(400).json({ error: "Cannot swap the same token" });
+    }
+
     const executeSwapTx = readCadence("execute_swap");
+    
+    // Use provided pathKeys or default empty array
+    const swapPathKeys = pathKeys || [];
+    
     const args = [
       [fromToken, t.String],
       [toToken, t.String],
+      [swapPathKeys, t.Array(t.String)],
       [fromAmount, t.UFix64],
       [minAmountOut, t.UFix64],
     ];
@@ -68,6 +85,10 @@ router.post("/execute", (req, res) => {
     res.json({
       cadence: executeSwapTx,
       args,
+      fromToken,
+      toToken,
+      fromAmount,
+      minAmountOut,
     });
   } catch (error) {
     console.error("Get swap transaction error:", error);
