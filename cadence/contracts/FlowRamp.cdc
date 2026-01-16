@@ -29,6 +29,23 @@ access(all) contract FlowRamp {
         memo: String
     )
 
+    access(all) event FlowOffRampInitiated(
+        depositor: Address,
+        amount: UFix64,
+        memo: String,
+        requestId: String,
+        txHash: String
+    )
+
+    access(all) event FlowSwapExecuted(
+        user: Address,
+        fromToken: String,
+        toToken: String,
+        fromAmount: UFix64,
+        toAmount: UFix64,
+        txHash: String
+    )
+
     // --- Public Keys for Signature Verification ---
 
     // Mapping of public keys by a simple user-defined string key.
