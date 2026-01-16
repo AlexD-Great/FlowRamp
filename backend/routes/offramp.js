@@ -13,10 +13,19 @@ const forte = new ForteActionsService();
 router.post("/request", protect, async (req, res) => {
   try {
     const { uid } = req.user;
-    const { walletAddress, amount, stablecoin, payoutMethod, payoutDetails } = req.body;
+    const { walletAddress, amount, token, payoutMethod, payoutDetails } = req.body;
 
-    if (!walletAddress || !amount || !stablecoin || !payoutMethod || !payoutDetails) {
+    // Support both 'stablecoin' (legacy) and 'token' (new) parameter names
+    const tokenType = token || req.body.stablecoin;
+
+    if (!walletAddress || !amount || !tokenType || !payoutMethod || !payoutDetails) {
       return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Validate token type
+    const validTokens = ["FUSD", "fUSDC", "fUSDT", "FLOW"];
+    if (!validTokens.includes(tokenType)) {
+      return res.status(400).json({ error: "Invalid token type. Supported: " + validTokens.join(", ") });
     }
 
     const memo = `OFF-RAMP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
@@ -25,7 +34,8 @@ router.post("/request", protect, async (req, res) => {
       userId: uid,
       walletAddress,
       amount,
-      stablecoin,
+      token: tokenType,
+      stablecoin: tokenType, // Keep for backward compatibility
       deposit_address: SERVICE_WALLET.ADDRESS,
       memo,
       status: "pending",
@@ -40,6 +50,7 @@ router.post("/request", protect, async (req, res) => {
       requestId,
       depositAddress: SERVICE_WALLET.ADDRESS,
       memo,
+      token: tokenType,
     });
   } catch (error) {
     console.error("Create off-ramp request error:", error);
@@ -56,16 +67,36 @@ router.post("/initiate", protect, async (req, res) => {
       return res.status(404).json({ error: "Request not found" });
     }
 
-    const cadence = fs.readFileSync(path.join(__dirname, "../cadence/forte/execute_off_ramp_with_actions.cdc"), "utf8");
-    const args = [
-      { type: "UFix64", value: request.amount.toFixed(8) },
-      { type: "String", value: request.memo },
-      { type: "String", value: requestId },
-    ];
+    // Determine which transaction to use based on token type
+    const tokenType = request.token || request.stablecoin;
+    let cadencePath;
+    let args;
+
+    if (tokenType === "FLOW") {
+      // FLOW token off-ramp transaction
+      cadencePath = path.join(__dirname, "../cadence/transactions/flowOffRamp.cdc");
+      args = [
+        { type: "UFix64", value: request.amount.toFixed(8) },
+        { type: "String", value: request.memo },
+        { type: "String", value: requestId },
+        { type: "Address", value: SERVICE_WALLET.ADDRESS },
+      ];
+    } else {
+      // Stablecoin off-ramp transaction (FUSD, fUSDC, fUSDT)
+      cadencePath = path.join(__dirname, "../cadence/forte/execute_off_ramp_with_actions.cdc");
+      args = [
+        { type: "UFix64", value: request.amount.toFixed(8) },
+        { type: "String", value: request.memo },
+        { type: "String", value: requestId },
+      ];
+    }
+
+    const cadence = fs.readFileSync(cadencePath, "utf8");
 
     res.json({
       cadence,
       args,
+      tokenType,
     });
   } catch (error) {
     console.error("Initiate off-ramp error:", error);
