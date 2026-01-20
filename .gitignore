@@ -58,6 +58,9 @@ P256_CURVE_FIX.md
 UX_IMPROVEMENTS_COMPLETE.md
 BACK_BUTTON_FEATURE.md
 WALLET_VERIFICATION_LIVE_DATA.md
+your-service-account-file.json
+ADMIN_VERIFICATION_SYSTEM.md
+set-admin.js
 
 # Helper scripts
 backend/verify-key.js
