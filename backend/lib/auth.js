@@ -1,4 +1,4 @@
-const { verifyIdToken } = require("./firebase-admin");
+const { verifyIdToken, getUserById } = require("./firebase-admin");
 
 const protect = async (req, res, next) => {
   let token;
@@ -23,6 +23,26 @@ const protect = async (req, res, next) => {
   }
 };
 
+const adminOnly = async (req, res, next) => {
+  try {
+    // First ensure user is authenticated
+    await protect(req, res, async () => {
+      const user = await getUserById(req.user.uid);
+      
+      // Check if user has admin role (you'll need to add this field in Firebase)
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      next();
+    });
+  } catch (error) {
+    console.error("Admin verification error:", error);
+    res.status(403).json({ error: "Admin verification failed" });
+  }
+};
+
 module.exports = {
   protect,
+  adminOnly,
 };
