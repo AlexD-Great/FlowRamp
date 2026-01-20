@@ -2,8 +2,10 @@ const { getDocument, updateDocument } = require("./firebase-admin");
 const { ForteActionsService } = require("./forte-actions");
 const fcl = require("@onflow/fcl");
 const { SERVICE_WALLET } = require("./constants");
+const { PaymentProvider } = require("./payment-provider");
 
 const forte = new ForteActionsService();
+const paymentProvider = new PaymentProvider();
 
 /**
  * Process a paid on-ramp session by minting/transferring stablecoins to user
@@ -20,18 +22,11 @@ async function processPayment(sessionId) {
       throw new Error(`Session ${sessionId} not found`);
     }
 
-    // Verify session is in paid status
-    if (session.status !== "paid") {
-      console.log(`[PROCESSOR] Session ${sessionId} is not in paid status (current: ${session.status})`);
+    // Verify session is in processing status (approved by admin)
+    if (session.status !== "processing") {
+      console.log(`[PROCESSOR] Session ${sessionId} is not in processing status (current: ${session.status})`);
       return;
     }
-
-    // Update status to processing
-    await updateDocument("onRampSessions", sessionId, {
-      status: "processing",
-      processingStartedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
 
     // Execute blockchain transaction to transfer stablecoins
     const txHash = await executeStablecoinTransfer(session);
@@ -186,34 +181,40 @@ async function processOffRampPayout(requestId, payoutDetails) {
       throw new Error(`Off-ramp request ${requestId} not found`);
     }
 
-    // Verify the deposit has been received on-chain
-    if (request.status !== "funded") {
-      console.log(`[PROCESSOR] Request ${requestId} is not funded yet (current: ${request.status})`);
+    // Verify the request has been approved by admin
+    if (request.status !== "processing") {
+      console.log(`[PROCESSOR] Request ${requestId} is not in processing status (current: ${request.status})`);
       return;
     }
 
-    // Update status to processing
-    await updateDocument("offRampRequests", requestId, {
-      status: "processing",
-      processingStartedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
-    // Initiate Paystack transfer to user's bank account
-    // Note: This requires Paystack Transfer API and proper setup
-    const transferRef = `offramp_${requestId}_${Date.now()}`;
+    // Calculate USDT amount based on FLOW tokens deposited
+    // In production, you'd use a proper price oracle
+    const flowAmount = parseFloat(request.amount);
+    const usdtAmount = flowAmount * 0.8; // Assuming 1 FLOW = 0.8 USDT for demo
     
-    console.log(`[PROCESSOR] Initiating Paystack transfer with reference: ${transferRef}`);
+    // Initiate Paystack transfer to user's bank account
+    const transferData = {
+      source: "balance", // Use your Paystack balance
+      amount: Math.round(usdtAmount * 100), // Convert to kobo/cents
+      recipient: payoutDetails.recipient_code, // You'll need to create this
+      reason: `FlowRamp Off-ramp - Request ${requestId}`,
+      reference: `offramp_${requestId}_${Date.now()}`,
+    };
+
+    console.log(`[PROCESSOR] Initiating Paystack transfer:`, transferData);
+    
+    const transfer = await paymentProvider.initiateTransfer(transferData);
     
     // Store the transfer reference for webhook tracking
     await updateDocument("offRampRequests", requestId, {
-      payoutRef: transferRef,
+      status: "payout_sent",
+      payoutRef: transfer.reference,
+      payoutAmount: usdtAmount,
       payoutInitiatedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
 
-    // The actual transfer will be confirmed via webhook
-    console.log(`[PROCESSOR] Off-ramp payout initiated for request ${requestId}`);
+    console.log(`[PROCESSOR] Off-ramp payout initiated for request ${requestId}, reference: ${transfer.reference}`);
 
   } catch (error) {
     console.error(`[PROCESSOR] Error processing off-ramp payout for request ${requestId}:`, error);
