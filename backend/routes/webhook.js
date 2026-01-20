@@ -3,6 +3,7 @@ const router = express.Router();
 const { PaymentProvider } = require("../lib/payment-provider");
 const { processPayment } = require("../lib/payment-processor");
 const { updateDocument, queryDocuments } = require("../lib/firebase-admin");
+const { notificationService } = require("../lib/notifications");
 
 const paymentProvider = new PaymentProvider();
 
@@ -89,17 +90,17 @@ async function handleChargeSuccess(data) {
       return;
     }
 
-    // Update session to paid status
+    // Update session to awaiting admin approval status
     await updateDocument("onRampSessions", sessionId, {
-      status: "paid",
+      status: "awaiting_admin_approval",
       paymentConfirmedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
 
-    console.log(`[WEBHOOK] Session ${sessionId} marked as paid, initiating blockchain transfer`);
+    console.log(`[WEBHOOK] Session ${sessionId} marked as paid, awaiting admin approval`);
 
-    // Process the payment (mint/transfer stablecoins)
-    await processPayment(sessionId);
+    // Send notification to admins
+    await notificationService.notifyPendingOnramp(session);
 
   } catch (error) {
     console.error("[WEBHOOK] Error handling charge success:", error);
