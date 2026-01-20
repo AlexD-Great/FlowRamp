@@ -147,7 +147,7 @@
 	},
 	"accounts": {
 		"emulator-account": {
-			"address": "f8d6e0586b0a20c7",
+			"address": "0x9368bdafca2eb2b5",
 			"key": {
 				"type": "file",
 				"location": "emulator-account.pkey"
@@ -158,6 +158,13 @@
 			"key": {
 				"type": "file",
 				"location": "testnet-account.pkey"
+			}
+		},
+		"mainnet-account": {
+			"address": "0x9368bdafca2eb2b5",
+			"key": {
+				"type": "file",
+				"location": "mainnet-account.pkey"
 			}
 		}
 	},
@@ -179,6 +186,11 @@
 		},
 		"testnet": {
 			"testnet-account": [
+				"FlowRamp"
+			]
+		},
+		"mainnet": {
+			"mainnet-account": [
 				"FlowRamp"
 			]
 		}
