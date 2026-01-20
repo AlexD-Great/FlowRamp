@@ -64,6 +64,40 @@ class PaymentProvider {
     }
   }
 
+  async initiateTransfer(transferData) {
+    try {
+      const response = await this.httpClient.post("/transfer", transferData);
+      const { data } = response.data;
+      
+      return {
+        success: true,
+        reference: data.reference,
+        transfer_code: data.transfer_code,
+        message: "Transfer initiated successfully",
+      };
+    } catch (error) {
+      console.error("Error initiating Paystack transfer:", error.response?.data || error.message);
+      throw new Error("Could not initiate transfer.");
+    }
+  }
+
+  async createTransferRecipient(recipientData) {
+    try {
+      const response = await this.httpClient.post("/transferrecipient", recipientData);
+      const { data } = response.data;
+      
+      return {
+        recipient_code: data.recipient_code,
+        active: data.active,
+        name: data.name,
+        type: data.type,
+      };
+    } catch (error) {
+      console.error("Error creating transfer recipient:", error.response?.data || error.message);
+      throw new Error("Could not create transfer recipient.");
+    }
+  }
+
   async initiatePayout(amount, currency, payoutDetails) {
     // This is a complex operation that requires a lot of setup on the Paystack
     // dashboard. For this example, we will just log the request.
