@@ -45,7 +45,7 @@ export default function RootLayout({
             
             <div className="flex min-h-screen">
               <AnimatedNav />
-              <div className="flex-1 md:ml-64 lg:ml-72">
+              <div className="flex-1">
                 <main id="main-content">
                   {children}
                 </main>

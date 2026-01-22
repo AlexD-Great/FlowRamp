@@ -206,6 +206,9 @@ export default function AnimatedNav() {
         </div>
       </div>
 
+      {/* Desktop spacer to push content */}
+      <div className="hidden md:block md:w-64 lg:w-72 flex-shrink-0" />
+
       {/* Overlay for mobile */}
       {isOpen && (
         <div
