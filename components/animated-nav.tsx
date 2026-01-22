@@ -61,8 +61,8 @@ export default function AnimatedNav() {
 
   return (
     <>
-      {/* Mobile/Tablet Navigation Toggle */}
-      <div className="md:hidden fixed top-4 left-4 z-50">
+      {/* Navigation Toggle - Always Visible */}
+      <div className="fixed top-4 left-4 z-50">
         <Button
           variant="outline"
           size="sm"
@@ -73,11 +73,11 @@ export default function AnimatedNav() {
         </Button>
       </div>
 
-      {/* Animated Side Navigation */}
+      {/* Animated Side Navigation - Always Hidden by Default */}
       <div
         className={`fixed top-0 left-0 h-full bg-background/95 backdrop-blur-md border-r border-border z-40 transform transition-all duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0 md:w-64 lg:w-72`}
+        } w-64 lg:w-72`}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
@@ -206,13 +206,10 @@ export default function AnimatedNav() {
         </div>
       </div>
 
-      {/* Desktop spacer to push content */}
-      <div className="hidden md:block md:w-64 lg:w-72 flex-shrink-0" />
-
-      {/* Overlay for mobile */}
+      {/* Overlay - Always Visible When Sidebar is Open */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          className="fixed inset-0 bg-black/50 z-30"
           onClick={() => setIsOpen(false)}
         />
       )}
