@@ -71,9 +71,6 @@ export default function NavLinks() {
         <Link href="/wallet" className="text-sm font-medium hover:text-primary transition-colors">
           Wallet
         </Link>
-        <Link href="/admin" className="text-sm font-medium hover:text-primary transition-colors">
-          Admin
-        </Link>
         {user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
