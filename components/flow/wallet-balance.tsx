@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { RefreshCw } from "lucide-react"
+import * as fcl from "@onflow/fcl"
 
 interface WalletBalanceProps {
   address: string
@@ -22,16 +23,25 @@ export function WalletBalance({ address }: WalletBalanceProps) {
   const loadBalance = async () => {
     setIsLoading(true)
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-      const response = await fetch(`${backendUrl}/api/flow/balance/${address}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch balance from backend.");
-      }
-      const data = await response.json();
-      setBalance(parseFloat(data.balance));
+      const result = await fcl.query({
+        cadence: `
+          import FungibleToken from 0xf233dcee88fe0abe
+          import FlowToken from 0x1654653399040a61
+
+          access(all) fun main(address: Address): UFix64 {
+            let account = getAccount(address)
+            let vaultRef = account.capabilities
+              .borrow<&FlowToken.Vault>(/public/flowTokenBalance)
+              ?? panic("Could not borrow Balance reference")
+            return vaultRef.balance
+          }
+        `,
+        args: (arg: any, t: any) => [arg(address, t.Address)],
+      })
+      setBalance(parseFloat(result))
     } catch (error) {
       console.error("Failed to load balance:", error)
-      setBalance(0); // Reset balance on error
+      setBalance(0)
     } finally {
       setIsLoading(false)
     }

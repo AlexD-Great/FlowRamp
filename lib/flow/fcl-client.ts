@@ -140,21 +140,20 @@ export class FCLClient {
       const timestamp = Date.now()
       const message = `FlowRamp Wallet Verification\nTimestamp: ${timestamp}\nAddress: ${user.addr}`
 
+      // FCL signUserMessage requires a hex-encoded string
+      const hexMessage = Buffer.from(message).toString("hex")
+
       console.log("[WALLET-VERIFY] Requesting signature for message:", message)
 
       // Request user to sign the message - LIVE SIGNATURE from user's wallet
       // This will trigger the actual wallet popup (Blocto/Lilico/etc)
-      const signatureResponse = await fcl.currentUser.signUserMessage(message)
+      const signatureResponse = await fcl.currentUser.signUserMessage(hexMessage)
 
       console.log("[WALLET-VERIFY] Signature response received:", signatureResponse)
 
-      if (!signatureResponse || signatureResponse.length === 0) {
-        throw new Error("Signature not provided by user")
-      }
-
       // Validate that signature contains required fields
-      if (!Array.isArray(signatureResponse)) {
-        throw new Error("Invalid signature format")
+      if (!signatureResponse || !Array.isArray(signatureResponse) || signatureResponse.length === 0) {
+        throw new Error("Signature not provided by user")
       }
 
       // Return the LIVE signature data and message for backend verification

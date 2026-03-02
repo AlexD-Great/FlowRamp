@@ -9,6 +9,7 @@ const webhookRoutes = require("./routes/webhook");
 const walletRoutes = require("./routes/wallet");
 const walletVerificationRoutes = require("./routes/wallet-verification");
 const kycRoutes = require("./routes/kyc");
+const ratesRoutes = require("./routes/rates");
 
 const app = express();
 // Render provides PORT, but we also support BACKEND_PORT for local development
@@ -61,6 +62,7 @@ app.use("/api/swap", swapRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/wallet", walletVerificationRoutes);
 app.use("/api/kyc", kycRoutes);
+app.use("/api/rates", ratesRoutes);
 
 app.get("/", (req, res) => {
   res.send("FlowRamp Backend is running!");
