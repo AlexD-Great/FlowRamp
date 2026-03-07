@@ -327,4 +327,27 @@ router.get("/stats", adminOnly, async (req, res) => {
   }
 });
 
+/**
+ * @route   GET /api/admin/check-role
+ * @desc    Check if current user has admin role
+ * @access  Protected
+ */
+router.get("/check-role", protect, async (req, res) => {
+  try {
+    // Check custom claims first (more secure)
+    let isAdmin = req.user.role === 'admin';
+    
+    // Fallback to Firestore check
+    if (!isAdmin) {
+      const user = await getUserById(req.user.uid);
+      isAdmin = user && user.role === "admin";
+    }
+    
+    res.json({ isAdmin, user: { uid: req.user.uid, email: req.user.email, role: isAdmin ? 'admin' : 'user' } });
+  } catch (error) {
+    console.error("[ADMIN] Error checking admin role:", error);
+    res.status(500).json({ error: "Failed to check admin role" });
+  }
+});
+
 module.exports = router;

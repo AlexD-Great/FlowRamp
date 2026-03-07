@@ -1,6 +1,6 @@
 # FlowRamp - Flow Blockchain On/Off Ramp
 
-FlowRamp is a secure and efficient cryptocurrency on/off-ramp platform for the Flow blockchain. It bridges traditional finance with decentralized finance by enabling users to seamlessly convert fiat currency (Nigerian Naira) into Flow stablecoins (fUSDC, fUSDT) and vice-versa.
+FlowRamp is a secure and efficient cryptocurrency on/off-ramp platform for the Flow blockchain. It bridges traditional finance with decentralized finance by enabling users to seamlessly convert fiat currency (Nigerian Naira) into Flow stablecoins (fUSDC, fUSDT) and vice versa.
 
 ## 🚀 Key Features
 

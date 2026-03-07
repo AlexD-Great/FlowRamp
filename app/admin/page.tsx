@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { TransactionTable } from "@/components/admin/transaction-table"
 import { FailedTransactions } from "@/components/admin/failed-transactions"
 import { ReconciliationPanel } from "@/components/admin/reconciliation-panel"
+import RateManager from "@/components/admin/rate-manager"
+import AdminGuard from "@/components/admin/admin-guard"
 import type { OnRampSession, OffRampRequest } from "@/lib/types/database"
 import { FEES } from "@/lib/constants"
 
@@ -58,35 +60,40 @@ export default function AdminPage() {
   const failedOffRampRequests = offRampRequests.filter(r => r.status === "failed")
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-      <div className="container mx-auto px-4 py-12">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4">Admin Dashboard</h1>
-          <p className="text-lg text-muted-foreground">Manage transactions and reconciliation</p>
-        </div>
+    <AdminGuard>
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+        <div className="container mx-auto px-4 py-12">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold mb-4">Admin Dashboard</h1>
+            <p className="text-lg text-muted-foreground">Manage transactions and reconciliation</p>
+          </div>
 
-        <div className="space-y-8 max-w-7xl mx-auto">
-          {/* All Transactions */}
-          <TransactionTable
-            onRampSessions={onRampSessions}
-            offRampRequests={offRampRequests}
-            onRefresh={loadData}
-            isLoading={isLoading}
-          />
+          <div className="space-y-8 max-w-7xl mx-auto">
+            {/* Rate Management */}
+            <RateManager />
 
-          {/* Failed Transactions */}
-          {(failedOnRampSessions.length > 0 || failedOffRampRequests.length > 0) && (
-            <FailedTransactions
-              onRampSessions={failedOnRampSessions}
-              offRampRequests={failedOffRampRequests}
-              onRetry={handleRetry}
+            {/* All Transactions */}
+            <TransactionTable
+              onRampSessions={onRampSessions}
+              offRampRequests={offRampRequests}
+              onRefresh={loadData}
+              isLoading={isLoading}
             />
-          )}
 
-          {/* Reconciliation Panel */}
-          <ReconciliationPanel />
+            {/* Failed Transactions */}
+            {(failedOnRampSessions.length > 0 || failedOffRampRequests.length > 0) && (
+              <FailedTransactions
+                onRampSessions={failedOnRampSessions}
+                offRampRequests={failedOffRampRequests}
+                onRetry={handleRetry}
+              />
+            )}
+
+            {/* Reconciliation Panel */}
+            <ReconciliationPanel />
+          </div>
         </div>
       </div>
-    </div>
+    </AdminGuard>
   )
 }

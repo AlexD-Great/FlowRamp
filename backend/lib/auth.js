@@ -27,9 +27,15 @@ const adminOnly = async (req, res, next) => {
   try {
     // First ensure user is authenticated
     await protect(req, res, async () => {
+      // Check custom claims first (more secure)
+      if (req.user.role === 'admin') {
+        return next();
+      }
+      
+      // Fallback to Firestore check
       const user = await getUserById(req.user.uid);
       
-      // Check if user has admin role (you'll need to add this field in Firebase)
+      // Check if user has admin role
       if (!user || user.role !== "admin") {
         return res.status(403).json({ error: "Admin access required" });
       }

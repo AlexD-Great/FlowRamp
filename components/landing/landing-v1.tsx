@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Zap, Shield, Globe, ArrowUpRight, ArrowDownRight, CheckCircle2, Lock, Eye, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
+import RateDisplay from "@/components/rate-display";
 
 // Animated counter component
 function AnimatedCounter({ end, duration = 2000, prefix = "", suffix = "" }: { end: number; duration?: number; prefix?: string; suffix?: string }) {
@@ -83,6 +84,11 @@ export default function LandingV1() {
         <GradientOrb />
         <FloatingParticles />
         <div className="container mx-auto px-4 py-24 md:py-32 relative z-10">
+          {/* Rate Display - Top Right */}
+          <div className="absolute top-4 right-4 z-20">
+            <RateDisplay />
+          </div>
+          
           <div className="max-w-4xl mx-auto text-center space-y-8">
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-4 animate-[fadeInDown_0.6s_ease-out]">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />

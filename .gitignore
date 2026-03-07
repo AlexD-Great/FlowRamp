@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+**/node_modules
 
 # next.js
 /.next/
@@ -9,15 +9,23 @@
 
 # production
 /build
+/dist
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
 # env files
-.env*
+.env
+.env.*
+.env.local
+.env.*.local
+backend/.env
+backend/.env.*
+backend/.env.local
 
 # vercel
 .vercel
@@ -25,20 +33,27 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-# flow
+
+# flow private keys
+*.pkey
 emulator-account.pkey
 testnet-account.pkey
-*.pkey
-imports
-.env
-backend/.env
-backend/.env.local
+mainnet-account.pkey
 
-# Firebase service account keys
+# Firebase & Google service account keys
 *serviceAccountKey.json
 serviceAccount*.json
+your-service-account-file.json
+*-service-account*.json
+*.credentials.json
 
-# Documentation files
+# One-off admin/setup scripts
+set-admin.js
+setup-admin.js
+backend/verify-key.js
+backend/get-public-key.js
+
+# Documentation files (generated)
 all_merged.md
 CADENCE_LINT_ERRORS.md
 DEPLOY_CONTRACT.md
@@ -58,10 +73,12 @@ P256_CURVE_FIX.md
 UX_IMPROVEMENTS_COMPLETE.md
 BACK_BUTTON_FEATURE.md
 WALLET_VERIFICATION_LIVE_DATA.md
-your-service-account-file.json
 ADMIN_VERIFICATION_SYSTEM.md
-set-admin.js
 
-# Helper scripts
-backend/verify-key.js
-backend/get-public-key.js
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
