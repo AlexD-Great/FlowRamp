@@ -22,15 +22,14 @@ const corsOptions = {
     
     const allowedOrigins = [
       'http://localhost:3000',
-      'https://flowramp.vercel.app',
-      'https://flowramp-git-main-alexd-greats-projects.vercel.app', // Vercel preview URLs
+      'https://flowramp.xyz',
+      'https://www.flowramp.xyz',
       process.env.CORS_ORIGIN
     ].filter(Boolean);
     
     // Check if origin matches any pattern
     const isAllowed = allowedOrigins.some(allowed => {
       if (allowed === '*') return true;
-      if (allowed && origin.includes('vercel.app')) return true;
       return origin === allowed;
     });
     
