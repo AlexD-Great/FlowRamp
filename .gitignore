@@ -19,9 +19,6 @@ yarn-error.log*
 *.log
 
 # env files
-.env
-.env.*
-.env.local
 .env.*.local
 backend/.env
 backend/.env.*
@@ -80,5 +77,5 @@ ADMIN_VERIFICATION_SYSTEM.md
 Thumbs.db
 
 # IDE
-.vscode/
 .idea/
+config.bat
