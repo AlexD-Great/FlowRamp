@@ -1,35 +1,61 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useAuth } from "@/lib/firebase/auth"
 import { TransactionTable } from "@/components/admin/transaction-table"
 import { FailedTransactions } from "@/components/admin/failed-transactions"
 import { ReconciliationPanel } from "@/components/admin/reconciliation-panel"
 import RateManager from "@/components/admin/rate-manager"
 import AdminGuard from "@/components/admin/admin-guard"
 import type { OnRampSession, OffRampRequest } from "@/lib/types/database"
-import { FEES } from "@/lib/constants"
 
 export default function AdminPage() {
+  const { user } = useAuth()
   const [onRampSessions, setOnRampSessions] = useState<OnRampSession[]>([])
   const [offRampRequests, setOffRampRequests] = useState<OffRampRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    loadData()
-  }, [])
+    if (user) {
+      loadData()
+    }
+  }, [user])
+
+  const getAuthHeaders = async (): Promise<HeadersInit | undefined> => {
+    if (!user) {
+      return undefined
+    }
+
+    return {
+      Authorization: `Bearer ${await user.getIdToken()}`,
+    }
+  }
+
+  const normalizeOnRampSession = (session: any): OnRampSession => ({
+    ...session,
+    created_at: session.created_at || session.createdAt || new Date().toISOString(),
+    updated_at: session.updated_at || session.updatedAt || session.createdAt || new Date().toISOString(),
+    paymentReference: session.paymentReference || session.paymentRef,
+  })
 
   const loadData = async () => {
+    if (!user) return
+
     setIsLoading(true)
     try {
-      // Load on-ramp sessions
-      const onRampResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/onramp/sessions`)
+      const headers = await getAuthHeaders()
+
+      const onRampResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/onramp/sessions`, {
+        headers,
+      })
       if (onRampResponse.ok) {
         const onRampData = await onRampResponse.json()
-        setOnRampSessions(onRampData.sessions || [])
+        setOnRampSessions((onRampData.sessions || []).map(normalizeOnRampSession))
       }
 
-      // Load off-ramp requests
-      const offRampResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/offramp/requests`)
+      const offRampResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/offramp/requests`, {
+        headers,
+      })
       if (offRampResponse.ok) {
         const offRampData = await offRampResponse.json()
         setOffRampRequests(offRampData.requests || [])
@@ -43,11 +69,12 @@ export default function AdminPage() {
 
   const handleRetry = async (id: string, type: "on-ramp" | "off-ramp") => {
     try {
-      const endpoint = type === "on-ramp" 
+      const headers = await getAuthHeaders()
+      const endpoint = type === "on-ramp"
         ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/onramp/retry/${id}`
         : `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/offramp/retry/${id}`
-      
-      const response = await fetch(endpoint, { method: "POST" })
+
+      const response = await fetch(endpoint, { method: "POST", headers })
       if (response.ok) {
         await loadData()
       }
@@ -56,8 +83,8 @@ export default function AdminPage() {
     }
   }
 
-  const failedOnRampSessions = onRampSessions.filter(s => s.status === "failed")
-  const failedOffRampRequests = offRampRequests.filter(r => r.status === "failed")
+  const failedOnRampSessions = onRampSessions.filter((s) => s.status === "failed")
+  const failedOffRampRequests = offRampRequests.filter((r) => r.status === "failed")
 
   return (
     <AdminGuard>
@@ -69,10 +96,8 @@ export default function AdminPage() {
           </div>
 
           <div className="space-y-8 max-w-7xl mx-auto">
-            {/* Rate Management */}
             <RateManager />
 
-            {/* All Transactions */}
             <TransactionTable
               onRampSessions={onRampSessions}
               offRampRequests={offRampRequests}
@@ -80,7 +105,6 @@ export default function AdminPage() {
               isLoading={isLoading}
             />
 
-            {/* Failed Transactions */}
             {(failedOnRampSessions.length > 0 || failedOffRampRequests.length > 0) && (
               <FailedTransactions
                 onRampSessions={failedOnRampSessions}
@@ -89,7 +113,6 @@ export default function AdminPage() {
               />
             )}
 
-            {/* Reconciliation Panel */}
             <ReconciliationPanel />
           </div>
         </div>

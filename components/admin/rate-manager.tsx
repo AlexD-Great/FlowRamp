@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Save, RefreshCw, TrendingUp, TrendingDown } from "lucide-react";
+import { Save, RefreshCw, TrendingUp } from "lucide-react";
 
 interface RateData {
   buyRate: number;
@@ -16,6 +16,7 @@ interface RateData {
 }
 
 export default function RateManager() {
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
   const [rates, setRates] = useState<RateData>({
     buyRate: 0,
     sellRate: 0,
@@ -31,8 +32,14 @@ export default function RateManager() {
   const [previousRates, setPreviousRates] = useState<RateData | null>(null);
 
   const fetchRates = async () => {
+    if (!backendUrl) {
+      setMessage({ type: "error", text: "Backend URL is missing" });
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch("/api/rates");
+      const response = await fetch(`${backendUrl}/api/rates`);
       if (response.ok) {
         const data = await response.json();
         setPreviousRates(rates);
@@ -51,6 +58,11 @@ export default function RateManager() {
   };
 
   const updateRates = async () => {
+    if (!backendUrl) {
+      setMessage({ type: "error", text: "Backend URL is missing" });
+      return;
+    }
+
     const buyRate = parseFloat(newRates.buyRate);
     const sellRate = parseFloat(newRates.sellRate);
 
@@ -66,7 +78,7 @@ export default function RateManager() {
 
     setSaving(true);
     try {
-      const response = await fetch("/api/rates", {
+      const response = await fetch(`${backendUrl}/api/rates`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -92,7 +104,7 @@ export default function RateManager() {
 
   useEffect(() => {
     fetchRates();
-  }, []);
+  }, [backendUrl]);
 
   useEffect(() => {
     if (message) {
@@ -103,8 +115,7 @@ export default function RateManager() {
 
   const getRateChange = (current: number, previous: number | null) => {
     if (previous === null || previous === 0) return null;
-    const change = ((current - previous) / previous) * 100;
-    return change;
+    return ((current - previous) / previous) * 100;
   };
 
   const buyRateChange = previousRates ? getRateChange(rates.buyRate, previousRates.buyRate) : null;
@@ -145,12 +156,11 @@ export default function RateManager() {
           </Alert>
         )}
 
-        {/* Current Rates Display */}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-sm text-muted-foreground">Current Buy Rate</Label>
             <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold">₦{rates.buyRate.toLocaleString()}</span>
+              <span className="text-2xl font-bold">NGN {rates.buyRate.toLocaleString()}</span>
               {buyRateChange !== null && (
                 <Badge variant={buyRateChange >= 0 ? "default" : "destructive"} className="text-xs">
                   {buyRateChange >= 0 ? "+" : ""}{buyRateChange.toFixed(2)}%
@@ -161,7 +171,7 @@ export default function RateManager() {
           <div className="space-y-2">
             <Label className="text-sm text-muted-foreground">Current Sell Rate</Label>
             <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold">₦{rates.sellRate.toLocaleString()}</span>
+              <span className="text-2xl font-bold">NGN {rates.sellRate.toLocaleString()}</span>
               {sellRateChange !== null && (
                 <Badge variant={sellRateChange >= 0 ? "default" : "destructive"} className="text-xs">
                   {sellRateChange >= 0 ? "+" : ""}{sellRateChange.toFixed(2)}%
@@ -171,12 +181,11 @@ export default function RateManager() {
           </div>
         </div>
 
-        {/* Update Form */}
         <div className="space-y-4 border-t border-border pt-4">
           <h3 className="text-lg font-semibold">Update Rates</h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="buyRate">New Buy Rate (₦)</Label>
+              <Label htmlFor="buyRate">New Buy Rate (NGN)</Label>
               <Input
                 id="buyRate"
                 type="number"
@@ -188,7 +197,7 @@ export default function RateManager() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sellRate">New Sell Rate (₦)</Label>
+              <Label htmlFor="sellRate">New Sell Rate (NGN)</Label>
               <Input
                 id="sellRate"
                 type="number"
@@ -212,7 +221,6 @@ export default function RateManager() {
           </div>
         </div>
 
-        {/* Last Updated Info */}
         <div className="text-sm text-muted-foreground border-t border-border pt-2">
           Last updated: {new Date(rates.lastUpdated).toLocaleString()}
         </div>

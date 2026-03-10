@@ -12,6 +12,7 @@ interface AdminGuardProps {
 }
 
 export default function AdminGuard({ children }: AdminGuardProps) {
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
   const { user } = useAuth();
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -24,9 +25,15 @@ export default function AdminGuard({ children }: AdminGuardProps) {
         return;
       }
 
+      if (!backendUrl) {
+        console.error("NEXT_PUBLIC_BACKEND_URL is missing");
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+
       try {
-        // Check if user has admin role via custom claims or Firestore
-        const response = await fetch("/api/admin/check-role", {
+        const response = await fetch(`${backendUrl}/api/admin/check-role`, {
           headers: {
             Authorization: `Bearer ${await user.getIdToken()}`,
           },
@@ -34,11 +41,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
 
         if (response.ok) {
           const data = await response.json();
-          if (data.isAdmin) {
-            setIsAdmin(true);
-          } else {
-            setIsAdmin(false);
-          }
+          setIsAdmin(Boolean(data.isAdmin));
         } else {
           setIsAdmin(false);
         }
@@ -51,7 +54,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
     };
 
     checkAdminRole();
-  }, [user, router]);
+  }, [backendUrl, user, router]);
 
   if (loading) {
     return (
