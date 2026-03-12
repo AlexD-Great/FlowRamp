@@ -10,35 +10,40 @@ const protect = async (req, res, next) => {
     try {
       token = req.headers.authorization.split(" ")[1];
       const decodedToken = await verifyIdToken(token);
+
+      if (!decodedToken) {
+        return res.status(401).json({ error: "Not authorized, token failed" });
+      }
+
       req.user = decodedToken;
-      next();
+      return next();
     } catch (error) {
       console.error("Error verifying token:", error);
-      res.status(401).json({ error: "Not authorized, token failed" });
+      return res.status(401).json({ error: "Not authorized, token failed" });
     }
   }
 
-  if (!token) {
-    res.status(401).json({ error: "Not authorized, no token" });
-  }
+  return res.status(401).json({ error: "Not authorized, no token" });
 };
 
 const adminOnly = async (req, res, next) => {
   try {
-    // First ensure user is authenticated
     await protect(req, res, async () => {
+      if (req.user.role === "admin") {
+        return next();
+      }
+
       const user = await getUserById(req.user.uid);
-      
-      // Check if user has admin role (you'll need to add this field in Firebase)
-      if (!user || user.role !== "admin") {
+
+      if (!user || user.customClaims?.role !== "admin") {
         return res.status(403).json({ error: "Admin access required" });
       }
-      
-      next();
+
+      return next();
     });
   } catch (error) {
     console.error("Admin verification error:", error);
-    res.status(403).json({ error: "Admin verification failed" });
+    return res.status(403).json({ error: "Admin verification failed" });
   }
 };
 

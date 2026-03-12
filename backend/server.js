@@ -9,56 +9,58 @@ const webhookRoutes = require("./routes/webhook");
 const walletRoutes = require("./routes/wallet");
 const walletVerificationRoutes = require("./routes/wallet-verification");
 const kycRoutes = require("./routes/kyc");
+<<<<<<< HEAD
 const exchangeRoutes = require("./routes/exchange");
 const adminRoutes = require("./routes/admin");
 const ycWebhookRoutes = require("./routes/yellowcard-webhook");
 const { depositMonitor } = require("./lib/deposit-monitor");
+=======
+const ratesRoutes = require("./routes/rates");
+const adminRoutes = require("./routes/admin");
+>>>>>>> d5738958941ae82dc8f0de0a35879885923954e8
 
 const app = express();
-// Render provides PORT, but we also support BACKEND_PORT for local development
 const port = process.env.PORT || process.env.BACKEND_PORT || 3001;
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     const allowedOrigins = [
-      'http://localhost:3000',
-      'https://flowramp.vercel.app',
-      'https://flowramp-git-main-alexd-greats-projects.vercel.app', // Vercel preview URLs
-      process.env.CORS_ORIGIN
+      "http://localhost:3000",
+      "https://flowramp.xyz",
+      "https://www.flowramp.xyz",
+      process.env.CORS_ORIGIN,
     ].filter(Boolean);
-    
-    // Check if origin matches any pattern
-    const isAllowed = allowedOrigins.some(allowed => {
-      if (allowed === '*') return true;
-      if (allowed && origin.includes('vercel.app')) return true;
+
+    const isAllowed = allowedOrigins.some((allowed) => {
+      if (allowed === "*") return true;
       return origin === allowed;
     });
-    
+
     if (isAllowed) {
       callback(null, true);
     } else {
-      console.log('Blocked by CORS:', origin);
-      callback(new Error('Not allowed by CORS'));
+      console.log("Blocked by CORS:", origin);
+      callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 };
 
+<<<<<<< HEAD
 // Webhook routes MUST come before express.json() middleware
 // because signature verification requires raw body
+=======
+>>>>>>> d5738958941ae82dc8f0de0a35879885923954e8
 app.use("/api/webhook", webhookRoutes);
 app.use("/api/yc-webhook", ycWebhookRoutes);
 
-// Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Routes
 app.use("/api/flow", flowRoutes);
 app.use("/api/onramp", onRampRoutes);
 app.use("/api/offramp", offRampRoutes);
@@ -66,14 +68,17 @@ app.use("/api/swap", swapRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/wallet", walletVerificationRoutes);
 app.use("/api/kyc", kycRoutes);
+<<<<<<< HEAD
 app.use("/api/exchange", exchangeRoutes);
+=======
+app.use("/api/rates", ratesRoutes);
+>>>>>>> d5738958941ae82dc8f0de0a35879885923954e8
 app.use("/api/admin", adminRoutes);
 
 app.get("/", (req, res) => {
   res.send("FlowRamp Backend is running!");
 });
 
-// Health check endpoint
 app.get("/health", (req, res) => {
   res.json({ status: "healthy", timestamp: new Date().toISOString() });
 });

@@ -161,10 +161,13 @@
 			}
 		},
 		"mainnet-account": {
-			"address": "0x9368bdafca2eb2b5",
-			"key": {
-				"type": "file",
-				"location": "mainnet-account.pkey"
+			  "address": "0x9368bdafca2eb2b5",
+  "key": {
+    "type": "file",
+    "location": "mainnet-account.pkey",
+    "index": 0,
+    "signatureAlgorithm": "ECDSA_secp256k1",
+    "hashAlgorithm": "SHA2_256"
 			}
 		}
 	},
