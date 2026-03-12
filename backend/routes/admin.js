@@ -26,14 +26,17 @@ const { getServiceWalletBalance } = require("../lib/flow-client");
  */
 router.get("/pending-onramp", adminOnly, async (req, res) => {
   try {
-    const sessions = await queryDocuments(
-      "onRampSessions", 
-      "status", 
-      "==", 
-      "awaiting_admin_approval"
-    );
+    // Fetch sessions in states that may need admin attention
+    const [collectionPending, awaitingDeposit, depositConfirmed, processing, collectionFailed, legacyAwaiting] = await Promise.all([
+      queryDocuments("onRampSessions", "status", "==", "collection_pending"),
+      queryDocuments("onRampSessions", "status", "==", "awaiting_ngn_deposit"),
+      queryDocuments("onRampSessions", "status", "==", "ngn_deposit_confirmed"),
+      queryDocuments("onRampSessions", "status", "==", "processing"),
+      queryDocuments("onRampSessions", "status", "==", "collection_failed"),
+      queryDocuments("onRampSessions", "status", "==", "awaiting_admin_approval"),
+    ]);
     
-    // Sort by creation date (newest first)
+    const sessions = [...collectionPending, ...awaitingDeposit, ...depositConfirmed, ...processing, ...collectionFailed, ...legacyAwaiting];
     sessions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
     res.json({ sessions });
@@ -50,14 +53,16 @@ router.get("/pending-onramp", adminOnly, async (req, res) => {
  */
 router.get("/pending-offramp", adminOnly, async (req, res) => {
   try {
-    const requests = await queryDocuments(
-      "offRampRequests", 
-      "status", 
-      "==", 
-      "awaiting_admin_approval"
-    );
+    const [awaitingDeposit, depositConfirmed, processing, ngnPending, ngnFailed, legacyAwaiting] = await Promise.all([
+      queryDocuments("offRampRequests", "status", "==", "awaiting_flow_deposit"),
+      queryDocuments("offRampRequests", "status", "==", "flow_deposit_confirmed"),
+      queryDocuments("offRampRequests", "status", "==", "processing"),
+      queryDocuments("offRampRequests", "status", "==", "ngn_payout_pending"),
+      queryDocuments("offRampRequests", "status", "==", "ngn_payout_failed"),
+      queryDocuments("offRampRequests", "status", "==", "awaiting_admin_approval"),
+    ]);
     
-    // Sort by creation date (newest first)
+    const requests = [...awaitingDeposit, ...depositConfirmed, ...processing, ...ngnPending, ...ngnFailed, ...legacyAwaiting];
     requests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
     res.json({ requests });
@@ -81,19 +86,11 @@ router.post("/approve-onramp/:sessionId", adminOnly, async (req, res) => {
       return res.status(404).json({ error: "Session not found" });
     }
 
-    if (session.status !== "awaiting_admin_approval") {
+    // Allow manual approval from multiple states
+    const approvableStatuses = ["awaiting_admin_approval", "awaiting_ngn_deposit", "collection_pending", "ngn_deposit_confirmed", "collection_failed", "pipeline_failed"];
+    if (!approvableStatuses.includes(session.status)) {
       return res.status(400).json({ 
-        error: "Session is not awaiting approval" 
-      });
-    }
-
-    // Check service wallet balance
-    const balance = await getServiceWalletBalance();
-    const requiredAmount = parseFloat(session.usdAmount);
-    
-    if (balance < requiredAmount) {
-      return res.status(400).json({ 
-        error: `Insufficient wallet balance. Required: ${requiredAmount} FLOW, Available: ${balance} FLOW` 
+        error: `Session cannot be approved (current status: ${session.status})` 
       });
     }
 
@@ -135,9 +132,10 @@ router.post("/reject-onramp/:sessionId", adminOnly, async (req, res) => {
       return res.status(404).json({ error: "Session not found" });
     }
 
-    if (session.status !== "awaiting_admin_approval") {
+    const rejectableStatuses = ["awaiting_admin_approval", "awaiting_ngn_deposit", "collection_pending", "ngn_deposit_confirmed", "collection_failed"];
+    if (!rejectableStatuses.includes(session.status)) {
       return res.status(400).json({ 
-        error: "Session is not awaiting approval" 
+        error: `Session cannot be rejected (current status: ${session.status})` 
       });
     }
 
@@ -174,9 +172,10 @@ router.post("/approve-offramp/:requestId", adminOnly, async (req, res) => {
       return res.status(404).json({ error: "Request not found" });
     }
 
-    if (request.status !== "awaiting_admin_approval") {
+    const approvableStatuses = ["awaiting_admin_approval", "awaiting_flow_deposit", "flow_deposit_confirmed", "pipeline_failed"];
+    if (!approvableStatuses.includes(request.status)) {
       return res.status(400).json({ 
-        error: "Request is not awaiting approval" 
+        error: `Request cannot be approved (current status: ${request.status})` 
       });
     }
 
@@ -188,8 +187,8 @@ router.post("/approve-offramp/:requestId", adminOnly, async (req, res) => {
       updatedAt: new Date().toISOString(),
     });
 
-    // Process the offramp payout
-    await processOffRampPayout(requestId, request.payoutDetails);
+    // Process the offramp payout via exchange pipeline
+    await processOffRampPayout(requestId);
 
     res.json({ 
       message: "Offramp request approved and processed successfully",
@@ -218,9 +217,10 @@ router.post("/reject-offramp/:requestId", adminOnly, async (req, res) => {
       return res.status(404).json({ error: "Request not found" });
     }
 
-    if (request.status !== "awaiting_admin_approval") {
+    const rejectableStatuses = ["awaiting_admin_approval", "awaiting_flow_deposit", "flow_deposit_confirmed"];
+    if (!rejectableStatuses.includes(request.status)) {
       return res.status(400).json({ 
-        error: "Request is not awaiting approval" 
+        error: `Request cannot be rejected (current status: ${request.status})` 
       });
     }
 
@@ -266,19 +266,20 @@ router.get("/wallet-balance", adminOnly, async (req, res) => {
 router.get("/stats", adminOnly, async (req, res) => {
   try {
     // Get pending counts
-    const pendingOnramp = await queryDocuments(
-      "onRampSessions", 
-      "status", 
-      "==", 
-      "awaiting_admin_approval"
-    );
+    // Count sessions in active pipeline states
+    const [pendingOnrampDeposit, pendingOnrampConfirmed, pendingOnrampLegacy] = await Promise.all([
+      queryDocuments("onRampSessions", "status", "==", "awaiting_ngn_deposit"),
+      queryDocuments("onRampSessions", "status", "==", "ngn_deposit_confirmed"),
+      queryDocuments("onRampSessions", "status", "==", "awaiting_admin_approval"),
+    ]);
+    const pendingOnramp = [...pendingOnrampDeposit, ...pendingOnrampConfirmed, ...pendingOnrampLegacy];
     
-    const pendingOfframp = await queryDocuments(
-      "offRampRequests", 
-      "status", 
-      "==", 
-      "awaiting_admin_approval"
-    );
+    const [pendingOfframpDeposit, pendingOfframpConfirmed, pendingOfframpLegacy] = await Promise.all([
+      queryDocuments("offRampRequests", "status", "==", "awaiting_flow_deposit"),
+      queryDocuments("offRampRequests", "status", "==", "flow_deposit_confirmed"),
+      queryDocuments("offRampRequests", "status", "==", "awaiting_admin_approval"),
+    ]);
+    const pendingOfframp = [...pendingOfframpDeposit, ...pendingOfframpConfirmed, ...pendingOfframpLegacy];
 
     // Get today's completed transactions
     const today = new Date().toISOString().split('T')[0];

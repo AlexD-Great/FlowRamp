@@ -40,9 +40,7 @@ export default function SellPage() {
   useEffect(() => {
     if (
       currentRequest &&
-      (currentRequest.status === "pending" ||
-        currentRequest.status === "funded" ||
-        currentRequest.status === "processing")
+      ["pending", "funded", "processing", "awaiting_flow_deposit", "flow_deposit_confirmed", "ngn_payout_pending"].includes(currentRequest.status)
     ) {
       const interval = setInterval(() => {
         pollRequestStatus(currentRequest.id)
@@ -216,12 +214,12 @@ export default function SellPage() {
           {viewState === "deposit" && currentRequest && (
             <DepositInstructions
               requestId={currentRequest.id}
-              depositAddress={currentRequest.deposit_address}
-              memo={currentRequest.memo}
+              depositAddress={currentRequest.depositAddress || currentRequest.deposit_address || ""}
+              memo={currentRequest.memo || ""}
               amount={currentRequest.amount}
-              stablecoin={currentRequest.stablecoin}
-              onConfirm={handleInitiateTransaction} // New prop
-              isLoading={isLoading} // New prop
+              stablecoin={currentRequest.token || currentRequest.stablecoin || "FLOW"}
+              onConfirm={handleInitiateTransaction}
+              isLoading={isLoading}
               onCancel={handleReset}
             />
           )}
@@ -231,16 +229,16 @@ export default function SellPage() {
               status={currentRequest.status}
               requestId={currentRequest.id}
               amount={currentRequest.amount}
-              stablecoin={currentRequest.stablecoin}
-              depositAddress={currentRequest.deposit_address}
-              memo={currentRequest.memo}
+              stablecoin={currentRequest.token || currentRequest.stablecoin || "FLOW"}
+              depositAddress={currentRequest.depositAddress || currentRequest.deposit_address || ""}
+              memo={currentRequest.memo || ""}
               payoutDetails={currentRequest.payoutDetails}
               onReset={handleReset}
             />
           )}
 
           {/* Show deposit instructions button when in status view */}
-          {viewState === "status" && currentRequest?.status === "pending" && (
+          {viewState === "status" && (currentRequest?.status === "pending" || currentRequest?.status === "awaiting_flow_deposit") && (
             <button onClick={() => setViewState("deposit")} className="text-sm text-primary hover:underline">
               View Deposit Instructions
             </button>

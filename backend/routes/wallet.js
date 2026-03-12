@@ -7,8 +7,8 @@ const { protect } = require("../lib/auth");
 
 // Configure FCL
 fcl.config({
-  "accessNode.api": process.env.FLOW_ACCESS_NODE || "https://rest-testnet.onflow.org",
-  "flow.network": process.env.FLOW_NETWORK || "testnet",
+  "accessNode.api": process.env.FLOW_ACCESS_NODE || "https://rest-mainnet.onflow.org",
+  "flow.network": process.env.FLOW_NETWORK || "mainnet",
 });
 
 /**

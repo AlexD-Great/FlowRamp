@@ -7,7 +7,7 @@ const fcl = require("@onflow/fcl");
 // Configure FCL
 fcl.config({
   "accessNode.api": process.env.FLOW_ACCESS_NODE,
-  "flow.network": process.env.FLOW_NETWORK || "testnet",
+  "flow.network": process.env.FLOW_NETWORK || "mainnet",
 });
 
 const PENDING_STATUS = "pending";

@@ -46,7 +46,5 @@ export const SERVICE_WALLET = {
 } as const
 
 export const PAYMENT_PROVIDERS = {
-  PAYSTACK: "paystack",
-  FLUTTERWAVE: "flutterwave",
-  STRIPE: "stripe",
+  YELLOW_CARD: "yellowcard",
 } as const

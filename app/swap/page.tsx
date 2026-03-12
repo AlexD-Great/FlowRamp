@@ -4,10 +4,11 @@ import { useState } from "react"
 import * as fcl from "@onflow/fcl"
 import * as t from "@onflow/types"
 
-// Configure FCL
+// Configure FCL — uses env vars, defaults to mainnet
 fcl.config({
-  "accessNode.api": "https://rest-testnet.onflow.org", // Testnet
-  "discovery.wallet": "https://fcl-discovery.onflow.org/testnet/authn", // Testnet
+  "accessNode.api": process.env.NEXT_PUBLIC_FLOW_ACCESS_NODE || "https://rest-mainnet.onflow.org",
+  "discovery.wallet": process.env.NEXT_PUBLIC_FLOW_DISCOVERY_WALLET || "https://fcl-discovery.onflow.org/authn",
+  "flow.network": process.env.NEXT_PUBLIC_FLOW_NETWORK || "mainnet",
 });
 
 export default function SwapPage() {
@@ -52,7 +53,7 @@ export default function SwapPage() {
 
       const transactionId = await fcl.mutate({
         cadence: data.cadence,
-        args: (arg, t) => data.args.map(([value, type]) => arg(value, t[type])),
+        args: (arg: any, t: Record<string, any>) => data.args.map(([value, type]: [any, string]) => arg(value, t[type])),
         limit: 9999,
       });
 
@@ -121,7 +122,7 @@ export default function SwapPage() {
             <p>{txStatus}</p>
             {txId && (
               <a
-                href={`https://testnet.flowscan.io/transaction/${txId}`}
+                href={`https://flowscan.org/transaction/${txId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-indigo-600 hover:text-indigo-900"

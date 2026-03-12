@@ -22,9 +22,10 @@ const SUPPORTED_STABLECOINS = {
 };
 
 const EXCHANGE_RATES = {
-  // Mock exchange rates - in production, fetch from API
-  NGN_TO_USD: 0.0024, // 1 NGN = 0.0024 USD (approx 1 USD = 416 NGN)
-  USD_TO_NGN: 416,
+  // Legacy mock rates — kept for backward compatibility.
+  // Live rates are now fetched via RateProvider from Yellow Card + Bybit.
+  NGN_TO_USD: 0.0006, // ~1 USD = 1650 NGN (approximate, updated)
+  USD_TO_NGN: 1650,
 };
 
 const FEES = {
@@ -41,8 +42,34 @@ const LIMITS = {
 };
 
 const SERVICE_WALLET = {
-  // Mock service wallet address for deposits
-  ADDRESS: "0xFLOWRAMP_SERVICE_WALLET",
+  // Flow blockchain service wallet for on-chain operations
+  ADDRESS: process.env.FLOW_ACCOUNT_ADDRESS || "0xFLOWRAMP_SERVICE_WALLET",
+};
+
+// Exchange pipeline configuration
+const EXCHANGE_CONFIG = {
+  // Yellow Card — handles NGN fiat rails (collections & payments)
+  YELLOW_CARD: {
+    SANDBOX_URL: "https://sandbox.yellowcard.engineering",
+    PRODUCTION_URL: "https://api.yellowcard.engineering",
+    COUNTRY_CODE: "NG", // Nigeria
+    CURRENCY: "NGN",
+  },
+  // Bybit — handles USDT ↔ FLOW trading
+  BYBIT: {
+    BASE_URL: "https://api.bybit.com",
+    FLOW_USDT_SYMBOL: "FLOWUSDT",
+    FLOW_WITHDRAW_CHAIN: "FLOW", // Flow blockchain native
+  },
+  // Pipeline settings
+  PIPELINE: {
+    DEPOSIT_POLL_INTERVAL_MS: 30000,  // 30 seconds (Bybit FLOW deposit polling)
+    ORDER_FILL_TIMEOUT_MS: 60000,     // 60 seconds
+    WITHDRAWAL_WAIT_TIMEOUT_MS: 600000, // 10 minutes
+    BYBIT_FLOW_WITHDRAWAL_FEE: 0.1,   // Approximate Bybit FLOW withdrawal fee
+    BYBIT_TRADING_FEE_PERCENT: 0.001, // 0.1% taker fee
+    PLATFORM_FEE_PERCENT: 0.015,      // 1.5% platform fee
+  },
 };
 
 const PAYMENT_PROVIDERS = {
@@ -59,4 +86,5 @@ module.exports = {
   LIMITS,
   SERVICE_WALLET,
   PAYMENT_PROVIDERS,
+  EXCHANGE_CONFIG,
 };

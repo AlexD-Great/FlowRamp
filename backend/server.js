@@ -9,6 +9,10 @@ const webhookRoutes = require("./routes/webhook");
 const walletRoutes = require("./routes/wallet");
 const walletVerificationRoutes = require("./routes/wallet-verification");
 const kycRoutes = require("./routes/kyc");
+const exchangeRoutes = require("./routes/exchange");
+const adminRoutes = require("./routes/admin");
+const ycWebhookRoutes = require("./routes/yellowcard-webhook");
+const { depositMonitor } = require("./lib/deposit-monitor");
 
 const app = express();
 // Render provides PORT, but we also support BACKEND_PORT for local development
@@ -45,9 +49,10 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization']
 };
 
-// Webhook route MUST come before express.json() middleware
-// because Paystack signature verification requires raw body
+// Webhook routes MUST come before express.json() middleware
+// because signature verification requires raw body
 app.use("/api/webhook", webhookRoutes);
+app.use("/api/yc-webhook", ycWebhookRoutes);
 
 // Middleware
 app.use(cors(corsOptions));
@@ -61,6 +66,8 @@ app.use("/api/swap", swapRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/wallet", walletVerificationRoutes);
 app.use("/api/kyc", kycRoutes);
+app.use("/api/exchange", exchangeRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.get("/", (req, res) => {
   res.send("FlowRamp Backend is running!");
@@ -74,4 +81,18 @@ app.get("/health", (req, res) => {
 app.listen(port, () => {
   console.log(`Backend server listening at http://localhost:${port}`);
   console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+
+  // Start the deposit monitor to poll Bybit for incoming FLOW deposits (off-ramp)
+  // On-ramp NGN collections are handled by Yellow Card webhooks (/api/yc-webhook)
+  if (process.env.BYBIT_API_KEY) {
+    const pollInterval = parseInt(process.env.DEPOSIT_POLL_INTERVAL_MS) || 30000;
+    depositMonitor.start(pollInterval);
+    console.log(`FLOW deposit monitor started (polling every ${pollInterval / 1000}s)`);
+  } else {
+    console.warn("BYBIT_API_KEY not configured — FLOW deposit monitor NOT started.");
+  }
+
+  if (!process.env.YELLOWCARD_API_KEY) {
+    console.warn("YELLOWCARD_API_KEY not configured — Yellow Card fiat rails disabled.");
+  }
 });

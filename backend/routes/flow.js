@@ -8,7 +8,7 @@ const path = require("path");
 // Make sure to create a .env file in the 'backend' directory with your Flow access node and private key.
 fcl.config({
   "accessNode.api": process.env.FLOW_ACCESS_NODE,
-  "discovery.wallet": `https://fcl-discovery.onflow.org/testnet/authn`, // Testnet
+  "discovery.wallet": process.env.FLOW_DISCOVERY_WALLET || "https://fcl-discovery.onflow.org/authn",
 });
 
 // --- Helper function to read Cadence code ---

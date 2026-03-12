@@ -5,7 +5,7 @@ const { authorization } = require("./crypto"); // We will create this file next
 // --- FCL Configuration ---
 fcl.config({
   "accessNode.api": process.env.FLOW_ACCESS_NODE,
-  "flow.network": process.env.FLOW_NETWORK || "testnet",
+  "flow.network": process.env.FLOW_NETWORK || "mainnet",
 });
 
 const executeScript = async (cadence, args = []) => {

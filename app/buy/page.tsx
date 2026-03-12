@@ -69,7 +69,7 @@ export default function BuyPage() {
 
   // Poll for session updates when processing
   useEffect(() => {
-    if (currentSession && (currentSession.status === "processing" || currentSession.status === "paid")) {
+    if (currentSession && ["processing", "collection_pending", "awaiting_ngn_deposit", "ngn_deposit_confirmed", "paid"].includes(currentSession.status)) {
       const interval = setInterval(() => {
         pollSessionStatus(currentSession.id)
       }, 3000)
@@ -166,14 +166,12 @@ export default function BuyPage() {
 
       const data = await response.json()
 
-      // In production, redirect to payment URL
-      // For demo, simulate payment flow
-      if (data.paymentUrl) {
-        // Open payment URL in new window
-        window.open(data.paymentUrl, "_blank")
+      // Show collection details (bank account for user to pay into)
+      if (data.collection?.bankDetails) {
+        toast.info("Transfer NGN to the bank account shown to complete your purchase.", { duration: 8000 })
       }
 
-      // Fetch the created session
+      // Fetch the created session to display status
       const sessionResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/onramp/session/${data.sessionId}`, {
         headers: getAuthHeaders(),
       });

@@ -575,7 +575,7 @@ function DashboardContent() {
                 
                 <div className="pt-4 border-t">
                   <p className="text-sm text-gray-600 mb-4">
-                    <strong>Live Data:</strong> Balance is fetched directly from Flow testnet blockchain.
+                    <strong>Live Data:</strong> Balance is fetched directly from the Flow blockchain.
                     {walletAddress && ` Showing balance for ${walletAddress.substring(0, 10)}...`}
                   </p>
                   <Button onClick={() => router.push("/wallet")} className="w-full" variant="outline">

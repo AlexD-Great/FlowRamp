@@ -1,24 +1,71 @@
 // Database types for FlowRamp application
 
-export type SessionStatus = "created" | "paid" | "processing" | "completed" | "failed"
+export type SessionStatus =
+  | "awaiting_ngn_deposit"
+  | "collection_pending"
+  | "collection_failed"
+  | "ngn_deposit_confirmed"
+  | "processing"
+  | "completed"
+  | "pipeline_failed"
+  | "failed"
+  | "rejected"
+  // Legacy statuses (backward compat)
+  | "created"
+  | "paid"
+  | "awaiting_admin_approval"
 
-export type OffRampStatus = "created" | "pending" | "funded" | "processing" | "completed" | "failed"
+export type OffRampStatus =
+  | "awaiting_flow_deposit"
+  | "flow_deposit_confirmed"
+  | "processing"
+  | "ngn_payout_pending"
+  | "ngn_payout_failed"
+  | "completed"
+  | "pipeline_failed"
+  | "failed"
+  | "rejected"
+  // Legacy statuses (backward compat)
+  | "created"
+  | "pending"
+  | "funded"
+  | "awaiting_admin_approval"
 
 export interface OnRampSession {
   id: string
+  userId?: string
+  userEmail?: string
   walletAddress: string
   fiatAmount: number
   fiatCurrency: string
-  usdAmount: number
-  stablecoin: string
+  token: string
+  estimatedFLOW?: number
+  estimatedUSDT?: number
+  rateSnapshot?: {
+    flowNGNRate: number
+    usdtNGNRate: number
+    flowUSDTRate: number
+  }
+  platformFeeNGN?: number
   status: SessionStatus
-  paymentProvider?: string
-  paymentReference?: string
+  ycCollectionId?: string
+  flowDelivered?: number
+  flowTxHash?: string
+  pipelineStep?: string
+  pipelineError?: string
+  createdAt: string
+  updatedAt?: string
+  completedAt?: string
+  error?: string
+  // Legacy fields
+  usdAmount?: number
+  stablecoin?: string
   txHash?: string
   receiptCID?: string
-  created_at: string
-  updated_at: string
-  error?: string
+  created_at?: string
+  updated_at?: string
+  paymentProvider?: string
+  paymentReference?: string
 }
 
 export interface OffRampRequest {
@@ -26,17 +73,32 @@ export interface OffRampRequest {
   userId?: string
   walletAddress: string
   amount: number
-  stablecoin: string
-  deposit_address: string
-  memo: string
+  token: string
+  depositAddress: string
+  estimatedNGN?: number
+  estimatedUSDT?: number
+  rateSnapshot?: {
+    flowNGNRate: number
+    usdtNGNRate: number
+    flowUSDTRate: number
+  }
+  platformFeeNGN?: number
   status: OffRampStatus
-  payoutMethod?: "bank_transfer" | "mobile_money"
   payoutDetails?: any
-  txHash?: string
-  paymentReference?: string
+  ycPaymentId?: string
+  ngnSent?: number
+  pipelineStep?: string
+  pipelineError?: string
   createdAt: string
   updatedAt?: string
+  completedAt?: string
   error?: string
+  // Legacy fields
+  stablecoin?: string
+  deposit_address?: string
+  memo?: string
+  txHash?: string
+  paymentReference?: string
 }
 
 export interface User {
@@ -48,10 +110,11 @@ export interface User {
 }
 
 export interface AdminStats {
-  totalOnRampVolume: number
-  totalOffRampVolume: number
-  totalTransactions: number
-  activeUsers: number
-  pendingTransactions: number
-  failedTransactions: number
+  pendingOnrampCount: number
+  pendingOfframpCount: number
+  todayCompletedOnramp: number
+  todayCompletedOfframp: number
+  totalCompletedOnramp: number
+  totalCompletedOfframp: number
+  walletBalance: string
 }
