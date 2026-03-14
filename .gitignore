@@ -1,12 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-<<<<<<< HEAD
-/node_modules
-backend/node_modules
-=======
 **/node_modules
->>>>>>> d5738958941ae82dc8f0de0a35879885923954e8
 
 # next.js
 /.next/
@@ -51,6 +46,7 @@ serviceAccount*.json
 your-service-account-file.json
 *-service-account*.json
 *.credentials.json
+*-firebase-adminsdk-*.json
 
 # One-off admin/setup scripts
 set-admin.js

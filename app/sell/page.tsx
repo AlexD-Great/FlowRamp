@@ -1,256 +1,689 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { SellForm } from "@/components/off-ramp/sell-form"
-import { DepositInstructions } from "@/components/off-ramp/deposit-instructions"
-import { WithdrawalStatus } from "@/components/off-ramp/withdrawal-status"
-import { WithdrawalHistory } from "@/components/off-ramp/withdrawal-history"
-import { useAuth } from "@/lib/firebase/auth"
-import { BackButton } from "@/components/ui/back-button"
+import { useState, useEffect, useRef } from "react"
+import { useAuth, signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/firebase/auth"
 import { toast } from "sonner"
-import * as fcl from "@onflow/fcl";
-import * as t from "@onflow/types";
-import type { OffRampRequest } from "@/lib/types/database"
+import { BackButton } from "@/components/ui/back-button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import {
+  Copy, CheckCircle2, Clock, XCircle, Upload, RefreshCw,
+  ImageIcon, AlertCircle, Zap, Landmark, ArrowRightLeft, Wallet, LogIn, UserPlus, Loader2
+} from "lucide-react"
 
-// Map string types from backend to FCL type objects
-const typeMap: { [key: string]: any } = {
-  "String": t.String,
-  "UFix64": t.UFix64,
-  "Address": t.Address,
-};
+type ViewState = "form" | "deposit" | "proof" | "pending"
 
-type ViewState = "form" | "deposit" | "status"
+interface BankDetails {
+  account_number: string
+  account_name: string
+  bank_name: string
+  bank_code?: string
+}
+
+interface Request {
+  id: string
+  status: string
+  amount: number
+  estimatedNGN: number
+  flowNGNRate: number
+  walletAddress: string
+  adminFlowAddress?: string
+  payoutDetails?: BankDetails
+  proofUrl?: string
+  txHash?: string
+  ngnSent?: number
+  paymentReference?: string
+  rejectionReason?: string
+  createdAt: string
+  completedAt?: string
+}
+
+interface RequestCreateData {
+  requestId: string
+  adminFlowAddress: string
+  estimatedNGN: number
+  flowNGNRate: number
+  flowAmount: number
+}
+
+const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  awaiting_flow_deposit: { label: "Awaiting FLOW", color: "bg-yellow-100 text-yellow-800 border-yellow-200", icon: <Clock className="h-3 w-3" /> },
+  awaiting_admin_approval: { label: "Under Review", color: "bg-blue-100 text-blue-800 border-blue-200", icon: <Clock className="h-3 w-3" /> },
+  processing: { label: "Processing", color: "bg-purple-100 text-purple-800 border-purple-200", icon: <RefreshCw className="h-3 w-3 animate-spin" /> },
+  completed: { label: "Completed", color: "bg-green-100 text-green-800 border-green-200", icon: <CheckCircle2 className="h-3 w-3" /> },
+  rejected: { label: "Rejected", color: "bg-red-100 text-red-800 border-red-200", icon: <XCircle className="h-3 w-3" /> },
+  failed: { label: "Failed", color: "bg-red-100 text-red-800 border-red-200", icon: <XCircle className="h-3 w-3" /> },
+  proof_rejected: { label: "Proof Rejected", color: "bg-orange-100 text-orange-800 border-orange-200", icon: <AlertCircle className="h-3 w-3" /> },
+}
+
+function AuthGate() {
+  const [mode, setMode] = useState<"signin" | "signup">("signin")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleEmailAuth = async () => {
+    if (!email || !password) { toast.error("Enter your email and password"); return }
+    setIsLoading(true)
+    const fn = mode === "signin" ? signInWithEmail : signUpWithEmail
+    const { error } = await fn(email, password)
+    if (error) toast.error(error)
+    else toast.success(mode === "signin" ? "Signed in!" : "Account created!")
+    setIsLoading(false)
+  }
+
+  const handleGoogle = async () => {
+    setIsLoading(true)
+    const { error } = await signInWithGoogle()
+    if (error) toast.error(error)
+    setIsLoading(false)
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="flex items-center justify-center gap-2 text-2xl">
+            {mode === "signin" ? <LogIn className="h-6 w-6" /> : <UserPlus className="h-6 w-6" />}
+            {mode === "signin" ? "Sign in to Sell FLOW" : "Create an account"}
+          </CardTitle>
+          <CardDescription>
+            {mode === "signin"
+              ? "You must be signed in to sell FLOW tokens."
+              : "Create an account to start selling FLOW tokens."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button variant="outline" className="w-full" onClick={handleGoogle} disabled={isLoading}>
+            {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : (
+              <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+              </svg>
+            )}
+            Continue with Google
+          </Button>
+
+          <div className="flex items-center gap-3">
+            <Separator className="flex-1" />
+            <span className="text-xs text-muted-foreground">or</span>
+            <Separator className="flex-1" />
+          </div>
+
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Password</Label>
+              <Input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleEmailAuth()} />
+            </div>
+          </div>
+
+          <Button className="w-full" onClick={handleEmailAuth} disabled={isLoading}>
+            {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            {mode === "signin" ? "Sign In" : "Create Account"}
+          </Button>
+
+          <p className="text-center text-sm text-muted-foreground">
+            {mode === "signin" ? "Don't have an account? " : "Already have an account? "}
+            <button className="text-primary underline" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}>
+              {mode === "signin" ? "Sign up" : "Sign in"}
+            </button>
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
 
 export default function SellPage() {
-  const { user } = useAuth(); // Get the authenticated user
+  const { user, loading } = useAuth()
   const [viewState, setViewState] = useState<ViewState>("form")
-  const [currentRequest, setCurrentRequest] = useState<OffRampRequest | null>(null)
-  const [requests, setRequests] = useState<OffRampRequest[]>([])
+  const [requests, setRequests] = useState<Request[]>([])
+  const [currentRequest, setCurrentRequest] = useState<Request | null>(null)
+  const [requestCreateData, setRequestCreateData] = useState<RequestCreateData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [jwt, setJwt] = useState<string | null>(null);
+  const [isFetchingRequests, setIsFetchingRequests] = useState(false)
+
+  // Form fields
+  const [walletAddress, setWalletAddress] = useState("")
+  const [flowAmount, setFlowAmount] = useState("")
+  const [bankAccountNumber, setBankAccountNumber] = useState("")
+  const [bankAccountName, setBankAccountName] = useState("")
+  const [bankName, setBankName] = useState("")
+  const [bankCode, setBankCode] = useState("")
+
+  // Proof upload
+  const [proofFile, setProofFile] = useState<File | null>(null)
+  const [proofPreview, setProofPreview] = useState<string | null>(null)
+  const [txHashInput, setTxHashInput] = useState("")
+  const [proofNote, setProofNote] = useState("")
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [copiedField, setCopiedField] = useState<string | null>(null)
+
+  const flowRate = requestCreateData?.flowNGNRate || 2000
+  const estimatedNGN = flowAmount ? parseFloat((parseFloat(flowAmount) * flowRate).toFixed(2)) : 0
 
   useEffect(() => {
     if (user) {
-      user.getIdToken().then(setJwt);
-      loadRequests();
+      loadRequests()
+      const saved = localStorage.getItem("flow_wallet_address")
+      if (saved) setWalletAddress(saved)
     }
-  }, [user]);
+  }, [user])
 
-  // Poll for request updates when processing
   useEffect(() => {
-    if (
-      currentRequest &&
-      ["pending", "funded", "processing", "awaiting_flow_deposit", "flow_deposit_confirmed", "ngn_payout_pending"].includes(currentRequest.status)
-    ) {
-      const interval = setInterval(() => {
-        pollRequestStatus(currentRequest.id)
-      }, 5000)
-
+    if (currentRequest && ["awaiting_admin_approval", "processing"].includes(currentRequest.status)) {
+      const interval = setInterval(() => pollRequest(currentRequest.id), 8000)
       return () => clearInterval(interval)
     }
   }, [currentRequest])
 
-  const getAuthHeaders = (): HeadersInit | undefined => {
-    if (!jwt) {
-      return undefined;
-    }
+  const getAuthHeaders = async (): Promise<HeadersInit | undefined> => {
+    if (!user) return undefined
     return {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${jwt}`,
-    };
-  };
-
-  const loadRequests = async () => {
-    if (!jwt) return;
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/requests`, {
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json()
-        setRequests(data.requests || [])
-      }
-    } catch (error) {
-      console.error("[v0] Failed to load requests:", error)
+      Authorization: `Bearer ${await user.getIdToken()}`,
     }
   }
 
-  const pollRequestStatus = async (requestId: string) => {
-    if (!jwt) return;
+  const loadRequests = async () => {
+    if (!user) return
+    setIsFetchingRequests(true)
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/request/${requestId}`, {
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json()
-        setCurrentRequest(data)
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/requests`, { headers })
+      if (res.ok) {
+        const data = await res.json()
+        setRequests(data.requests || [])
+      }
+    } catch (e) {
+      console.error("Failed to load requests:", e)
+    } finally {
+      setIsFetchingRequests(false)
+    }
+  }
 
-        // Reload history when completed
-        if (data.status === "completed" || data.status === "failed") {
+  const pollRequest = async (requestId: string) => {
+    if (!user) return
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/request/${requestId}`, { headers })
+      if (res.ok) {
+        const data = await res.json()
+        setCurrentRequest(data)
+        if (data.status === "completed") {
+          toast.success("NGN payout sent to your bank!", { description: `₦${data.ngnSent?.toLocaleString() || data.estimatedNGN?.toLocaleString()} sent.` })
+          loadRequests()
+        } else if (data.status === "rejected" || data.status === "proof_rejected") {
+          toast.error("Your request was rejected.", { description: data.rejectionReason || "Contact support for details." })
           loadRequests()
         }
       }
-    } catch (error) {
-      console.error("[v0] Failed to poll request:", error)
+    } catch (e) {
+      console.error("Failed to poll request:", e)
     }
   }
 
-  const handleSubmit = async (formData: {
-    walletAddress: string
-    amount: number
-    stablecoin: string
-    payoutMethod: "bank_transfer" | "mobile_money"
-    payoutDetails: any
-  }) => {
-    if (!jwt) {
-      toast.error("Please sign in to continue.");
-      return;
+  const handleCreateRequest = async () => {
+    if (!user) { toast.error("Please sign in to continue."); return }
+    if (!walletAddress || !walletAddress.startsWith("0x")) {
+      toast.error("Please enter a valid Flow wallet address (starts with 0x)"); return
     }
+    const amount = parseFloat(flowAmount)
+    if (!flowAmount || isNaN(amount) || amount < 0.1) {
+      toast.error("Minimum sell amount is 0.1 FLOW"); return
+    }
+    if (!bankAccountNumber || bankAccountNumber.length < 10) {
+      toast.error("Please enter a valid 10-digit bank account number"); return
+    }
+    if (!bankAccountName.trim()) {
+      toast.error("Please enter the account name"); return
+    }
+    if (!bankName.trim()) {
+      toast.error("Please enter your bank name"); return
+    }
+
     setIsLoading(true)
-
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/request`, {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/request`, {
         method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify(formData),
+        headers,
+        body: JSON.stringify({
+          walletAddress,
+          amount,
+          payoutDetails: {
+            account_number: bankAccountNumber,
+            account_name: bankAccountName,
+            bank_name: bankName,
+            bank_code: bankCode,
+          },
+        }),
       })
-
-      if (!response.ok) {
-        throw new Error("Failed to create request")
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to create request")
       }
-
-      const data = await response.json()
-
-      // Fetch the created request
-      const requestResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/request/${data.requestId}`, {
-        headers: getAuthHeaders(),
-      });
-      if (requestResponse.ok) {
-        const requestData = await requestResponse.json()
-        setCurrentRequest(requestData)
-        setViewState("deposit")
-      }
-    } catch (error) {
-      console.error("[v0] Failed to create request:", error)
-      toast.error("Failed to create withdrawal request. Please try again.")
+      const data: RequestCreateData = await res.json()
+      setRequestCreateData(data)
+      localStorage.setItem("flow_wallet_address", walletAddress)
+      setViewState("deposit")
+      await loadRequests()
+    } catch (e: any) {
+      toast.error(e.message || "Failed to create request. Please try again.")
     } finally {
       setIsLoading(false)
     }
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { toast.error("File too large. Max 5MB."); return }
+    setProofFile(file)
+    const reader = new FileReader()
+    reader.onload = () => setProofPreview(reader.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const handleSubmitProof = async () => {
+    const requestId = requestCreateData?.requestId || currentRequest?.id
+    if (!requestId) return
+    if (!proofPreview && !txHashInput) {
+      toast.error("Please upload a screenshot or enter the transaction hash."); return
+    }
+    setIsLoading(true)
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/submit-proof/${requestId}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ proofUrl: proofPreview || null, txHash: txHashInput || null, proofNote }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to submit proof")
+      }
+      toast.success("Proof submitted! Admin will verify and process your NGN payout.")
+      const reqRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/request/${requestId}`, {
+        headers: await getAuthHeaders(),
+      })
+      if (reqRes.ok) setCurrentRequest(await reqRes.json())
+      setViewState("pending")
+      await loadRequests()
+    } catch (e: any) {
+      toast.error(e.message || "Failed to submit proof.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedField(field)
+    toast.success("Copied!")
+    setTimeout(() => setCopiedField(null), 2000)
+  }
+
   const handleReset = () => {
     setCurrentRequest(null)
+    setRequestCreateData(null)
+    setProofFile(null)
+    setProofPreview(null)
+    setTxHashInput("")
+    setProofNote("")
     setViewState("form")
     loadRequests()
   }
 
-  const handleViewStatus = () => {
-    setViewState("status")
+  const adminFlowAddress = requestCreateData?.adminFlowAddress || currentRequest?.adminFlowAddress
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
-  const handleInitiateTransaction = async () => {
-    if (!currentRequest || !jwt) {
-      toast.error("Cannot initiate transaction. Request details are missing.");
-      return;
-    }
-    setIsLoading(true);
-    try {
-      // 1. Get transaction details from the backend
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/initiate`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ requestId: currentRequest.id }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to get transaction details from server.");
-      }
-
-      const { cadence, args } = await response.json();
-
-      // 2. Use FCL to send the transaction for user to sign
-      const txId = await fcl.mutate({
-        cadence,
-        args: (arg) => args.map((a: { value: any; type: string }) => arg(a.value, typeMap[a.type])),
-        limit: 9999,
-      });
-
-      console.log("Transaction sent with ID:", txId);
-      setCurrentRequest(prev => prev ? { ...prev, txHash: txId, status: "processing" } : null);
-      setViewState("status"); // Move to status view to monitor transaction
-
-      // 3. Wait for the transaction to be sealed
-      await fcl.tx(txId).onceSealed();
-      pollRequestStatus(currentRequest.id); // Re-poll to get final status from backend
-
-    } catch (error) {
-      console.error("Failed to initiate transaction:", error);
-      toast.error("Failed to send transaction. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  if (!user) return <AuthGate />
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-      <div className="container mx-auto px-4 py-12">
-        {/* Back Button */}
-        <div className="mb-6">
-          <BackButton href="/" />
-        </div>
-        
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4 text-balance">Sell Flow Stablecoins</h1>
-          <p className="text-lg text-muted-foreground text-balance max-w-2xl mx-auto">
-            Convert your Flow stablecoins to Nigerian Naira and receive payment directly to your account
+      <div className="container mx-auto px-4 py-12 max-w-2xl">
+        <div className="mb-6"><BackButton href="/" /></div>
+
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-bold mb-3">Sell FLOW</h1>
+          <p className="text-muted-foreground max-w-lg mx-auto">
+            Send FLOW to our wallet, upload your proof, and receive NGN in your bank after admin confirmation.
           </p>
         </div>
 
-        {/* Main Content */}
-        <div className="flex flex-col items-center gap-8">
-          {viewState === "form" && <SellForm onSubmit={handleSubmit} isLoading={isLoading} />}
+        {/* STEP 1: Form (Amount + Bank Details) */}
+        {viewState === "form" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ArrowRightLeft className="h-5 w-5" /> Sell FLOW for NGN</CardTitle>
+              <CardDescription>Enter the amount you want to sell and your bank account for NGN payout.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <Label>Your Flow Wallet Address</Label>
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <Input placeholder="0x..." value={walletAddress} onChange={e => setWalletAddress(e.target.value)} />
+                </div>
+                <p className="text-xs text-muted-foreground">The wallet you will be sending FLOW from.</p>
+              </div>
 
-          {viewState === "deposit" && currentRequest && (
-            <DepositInstructions
-              requestId={currentRequest.id}
-              depositAddress={currentRequest.depositAddress || currentRequest.deposit_address || ""}
-              memo={currentRequest.memo || ""}
-              amount={currentRequest.amount}
-              stablecoin={currentRequest.token || currentRequest.stablecoin || "FLOW"}
-              onConfirm={handleInitiateTransaction}
-              isLoading={isLoading}
-              onCancel={handleReset}
-            />
-          )}
+              <div className="space-y-2">
+                <Label>FLOW Amount to Sell</Label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 100"
+                  value={flowAmount}
+                  onChange={e => setFlowAmount(e.target.value)}
+                  min={0.1}
+                  step={0.1}
+                />
+                <p className="text-xs text-muted-foreground">Minimum: 0.1 FLOW</p>
+              </div>
 
-          {viewState === "status" && currentRequest && (
-            <WithdrawalStatus
-              status={currentRequest.status}
-              requestId={currentRequest.id}
-              amount={currentRequest.amount}
-              stablecoin={currentRequest.token || currentRequest.stablecoin || "FLOW"}
-              depositAddress={currentRequest.depositAddress || currentRequest.deposit_address || ""}
-              memo={currentRequest.memo || ""}
-              payoutDetails={currentRequest.payoutDetails}
-              onReset={handleReset}
-            />
-          )}
+              {flowAmount && parseFloat(flowAmount) >= 0.1 && (
+                <div className="bg-muted/60 rounded-lg p-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">You Sell</span>
+                    <span className="font-semibold">{parseFloat(flowAmount)} FLOW</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Rate</span>
+                    <span>₦{flowRate.toLocaleString()} / FLOW</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between text-base font-bold">
+                    <span>You Receive (est.)</span>
+                    <span className="text-green-600">~₦{estimatedNGN.toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
 
-          {/* Show deposit instructions button when in status view */}
-          {viewState === "status" && (currentRequest?.status === "pending" || currentRequest?.status === "awaiting_flow_deposit") && (
-            <button onClick={() => setViewState("deposit")} className="text-sm text-primary hover:underline">
-              View Deposit Instructions
-            </button>
-          )}
+              <Separator />
 
-          {/* Withdrawal History */}
-          {requests.length > 0 && viewState === "form" && (
-            <div className="w-full max-w-2xl">
-              <WithdrawalHistory requests={requests} />
+              <div>
+                <h3 className="font-semibold flex items-center gap-2 mb-4"><Landmark className="h-4 w-4" /> Receiving Bank Account</h3>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label>Bank Name</Label>
+                    <Input placeholder="e.g. Access Bank" value={bankName} onChange={e => setBankName(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Account Number</Label>
+                    <Input
+                      placeholder="0123456789"
+                      value={bankAccountNumber}
+                      onChange={e => setBankAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      maxLength={10}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Account Name</Label>
+                    <Input placeholder="e.g. John Doe" value={bankAccountName} onChange={e => setBankAccountName(e.target.value)} />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">NGN will be sent directly to this account after admin approval.</p>
+              </div>
+
+              <Button className="w-full" size="lg" onClick={handleCreateRequest} disabled={isLoading}>
+                {isLoading ? "Creating Order..." : "Get Deposit Instructions"}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* STEP 2: Deposit Instructions */}
+        {viewState === "deposit" && requestCreateData && adminFlowAddress && (
+          <div className="space-y-5">
+            <Card className="border-purple-200 bg-purple-50/40">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-purple-700"><Wallet className="h-5 w-5" /> Send FLOW to This Address</CardTitle>
+                <CardDescription>
+                  Send exactly <strong>{requestCreateData.flowAmount} FLOW</strong> from your connected wallet to the address below.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-white rounded-lg p-4 border">
+                  <p className="text-xs text-muted-foreground mb-1">FlowRamp Receiving Wallet</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-mono text-sm font-bold break-all">{adminFlowAddress}</p>
+                    <Button variant="ghost" size="sm" className="flex-shrink-0" onClick={() => copyToClipboard(adminFlowAddress, "address")}>
+                      {copiedField === "address" ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Exact Amount to Send</p>
+                    <p className="font-bold text-lg text-purple-700">{requestCreateData.flowAmount} FLOW</p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => copyToClipboard(String(requestCreateData.flowAmount), "flowAmount")}>
+                    {copiedField === "flowAmount" ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                  ⚠️ Send the <strong>exact amount</strong> shown. Only send from your registered wallet address.
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="py-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                  <p className="text-sm text-muted-foreground">You will receive approximately</p>
+                  <p className="text-3xl font-bold text-green-700 mt-1">~₦{requestCreateData.estimatedNGN.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    to {bankAccountName} — {bankName} ({bankAccountNumber})
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Button className="w-full" size="lg" onClick={() => setViewState("proof")}>
+              I've Sent the FLOW — Upload Proof
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={handleReset}>Cancel</Button>
+          </div>
+        )}
+
+        {/* STEP 3: Upload Proof */}
+        {viewState === "proof" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" /> Upload Transaction Proof</CardTitle>
+              <CardDescription>Upload a screenshot of your FLOW transaction or paste the transaction hash.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div
+                className="border-2 border-dashed border-muted-foreground/30 rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-all"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {proofPreview ? (
+                  <div className="space-y-3">
+                    <img src={proofPreview} alt="Transaction proof" className="max-h-48 mx-auto rounded-lg object-contain border" />
+                    <p className="text-sm text-muted-foreground">{proofFile?.name}</p>
+                    <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setProofFile(null); setProofPreview(null) }}>
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground/50" />
+                    <div>
+                      <p className="font-medium">Click to upload screenshot</p>
+                      <p className="text-sm text-muted-foreground">PNG, JPG, JPEG up to 5MB</p>
+                    </div>
+                  </div>
+                )}
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+              </div>
+
+              <div className="text-center text-sm text-muted-foreground">— or —</div>
+
+              <div className="space-y-2">
+                <Label>Transaction Hash (optional)</Label>
+                <Input
+                  placeholder="0x..."
+                  value={txHashInput}
+                  onChange={e => setTxHashInput(e.target.value)}
+                  className="font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground">Enter the Flow blockchain transaction ID from your wallet.</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Additional Note (optional)</Label>
+                <Input
+                  placeholder="Any notes for admin"
+                  value={proofNote}
+                  onChange={e => setProofNote(e.target.value)}
+                />
+              </div>
+
+              <Button className="w-full" size="lg" onClick={handleSubmitProof} disabled={isLoading || (!proofPreview && !txHashInput)}>
+                {isLoading ? "Submitting..." : "Submit Proof for Review"}
+              </Button>
+              <Button variant="ghost" className="w-full" onClick={() => setViewState("deposit")}>Back to Deposit Address</Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* STEP 4: Pending / Status */}
+        {viewState === "pending" && currentRequest && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5 text-blue-600" /> Request Under Review</CardTitle>
+              <CardDescription>Your FLOW transfer proof has been submitted. The admin will verify and send your NGN payout.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Request ID</span>
+                  <span className="font-mono text-xs">{currentRequest.id.substring(0, 16)}...</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">FLOW Sent</span>
+                  <span className="font-semibold">{currentRequest.amount} FLOW</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Expected NGN</span>
+                  <span className="font-semibold text-green-700">~₦{currentRequest.estimatedNGN?.toLocaleString()}</span>
+                </div>
+                {currentRequest.payoutDetails && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Payout To</span>
+                    <span className="text-right text-xs">
+                      {currentRequest.payoutDetails.bank_name}<br />
+                      {currentRequest.payoutDetails.account_number}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm items-center">
+                  <span className="text-muted-foreground">Status</span>
+                  {(() => {
+                    const cfg = statusConfig[currentRequest.status] || statusConfig.awaiting_admin_approval
+                    return (
+                      <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs border font-medium ${cfg.color}`}>
+                        {cfg.icon} {cfg.label}
+                      </span>
+                    )
+                  })()}
+                </div>
+              </div>
+
+              {currentRequest.status === "completed" && (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+                  <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                  <p className="font-bold text-green-700 text-lg">NGN Payout Sent!</p>
+                  <p className="text-sm text-muted-foreground">
+                    ₦{(currentRequest.ngnSent || currentRequest.estimatedNGN)?.toLocaleString()} sent to your bank.
+                  </p>
+                  {currentRequest.paymentReference && (
+                    <p className="text-xs font-mono mt-2 text-muted-foreground">Ref: {currentRequest.paymentReference}</p>
+                  )}
+                </div>
+              )}
+
+              {(currentRequest.status === "rejected" || currentRequest.status === "proof_rejected") && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <XCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
+                  <p className="font-bold text-red-700 text-center">Request Rejected</p>
+                  {currentRequest.rejectionReason && (
+                    <p className="text-sm text-center text-muted-foreground mt-1">{currentRequest.rejectionReason}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => pollRequest(currentRequest.id)}>
+                  <RefreshCw className="h-4 w-4 mr-2" /> Refresh Status
+                </Button>
+                <Button variant="outline" className="flex-1" onClick={handleReset}>New Request</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Sell History */}
+        {requests.length > 0 && (
+          <div className="mt-10 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold">Sell History</h2>
+              <Button variant="ghost" size="sm" onClick={loadRequests} disabled={isFetchingRequests}>
+                <RefreshCw className={`h-4 w-4 mr-1 ${isFetchingRequests ? "animate-spin" : ""}`} /> Refresh
+              </Button>
             </div>
-          )}
-        </div>
+            <div className="space-y-3">
+              {requests.map(request => {
+                const cfg = statusConfig[request.status] || { label: request.status, color: "bg-gray-100 text-gray-800 border-gray-200", icon: null }
+                return (
+                  <Card
+                    key={request.id}
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => { setCurrentRequest(request); setViewState("pending") }}
+                  >
+                    <CardContent className="py-4 flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold">{request.amount} FLOW → ~₦{request.estimatedNGN?.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{new Date(request.createdAt).toLocaleString()}</p>
+                      </div>
+                      <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border font-medium ${cfg.color}`}>
+                        {cfg.icon} {cfg.label}
+                      </span>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+            <div className="mt-4 p-3 bg-muted/50 rounded-lg text-center border border-dashed">
+              <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
+                <Zap className="h-4 w-4 text-primary" />
+                Automated deposits &amp; payouts coming soon
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

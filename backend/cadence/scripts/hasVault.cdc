@@ -1,4 +1,4 @@
-import "FungibleToken"
+import FungibleToken from 0xf233dcee88fe0abe
 
 // Generic script to check if an account has a vault capability at a given path
 access(all) fun main(address: Address, publicBalancePath: PublicPath): Bool {

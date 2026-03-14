@@ -1,19 +1,38 @@
 const express = require("express");
 const router = express.Router();
 const { createDocument, getDocument, updateDocument, queryDocuments } = require("../lib/firebase-admin");
-const { RateProvider } = require("../lib/rate-provider");
-const { ExchangeService } = require("../lib/exchange-service");
 const { protect } = require("../lib/auth");
+const { notifyNewSellOrder } = require("../lib/notifier");
 
-const rateProvider = new RateProvider();
-const exchangeService = new ExchangeService();
+// Admin FLOW wallet address — users send FLOW here to initiate sell
+const ADMIN_FLOW_ADDRESS = process.env.ADMIN_FLOW_ADDRESS || process.env.FLOW_ACCOUNT_ADDRESS || "0x0000000000000000";
+
+// FLOW rate (NGN per 1 FLOW)
+const getFlowRate = () => parseFloat(process.env.FLOW_NGN_RATE || "2000");
+
+/**
+ * @route   GET /api/offramp/deposit-address
+ * @desc    Get the admin FLOW wallet address for users to send FLOW to.
+ * @access  Private
+ */
+router.get("/deposit-address", protect, async (req, res) => {
+  try {
+    res.json({
+      flowAddress: ADMIN_FLOW_ADDRESS,
+      flowNGNRate: getFlowRate(),
+    });
+  } catch (error) {
+    console.error("Get deposit address error:", error);
+    res.status(500).json({ error: "Failed to get deposit address" });
+  }
+});
 
 /**
  * @route   POST /api/offramp/request
- * @desc    Create a new off-ramp request (sell FLOW for NGN).
- *          Returns a Bybit FLOW deposit address for the user to send FLOW to.
- *          The deposit monitor will detect the FLOW arrival and trigger the
- *          automated pipeline: FLOW → USDT (Bybit) → Yellow Card payment → NGN to user's bank.
+ * @desc    Create a manual off-ramp request. User specifies FLOW amount and
+ *          their receiving bank account. Admin FLOW wallet address is returned
+ *          for user to send FLOW to, then user uploads proof.
+ *          Admin reviews and manually sends NGN to user's bank account.
  * @access  Private
  */
 router.post("/request", protect, async (req, res) => {
@@ -25,67 +44,102 @@ router.post("/request", protect, async (req, res) => {
       return res.status(400).json({ error: "Missing required fields: walletAddress, amount, payoutDetails" });
     }
 
-    // Validate payout details for bank transfer
-    // networkId is the Yellow Card bank network identifier; bank_code accepted for backward compat
-    if (!payoutDetails.account_number || !payoutDetails.account_name) {
+    if (!payoutDetails.account_number || !payoutDetails.account_name || !payoutDetails.bank_name) {
       return res.status(400).json({
-        error: "payoutDetails must include account_number and account_name",
-      });
-    }
-    if (!payoutDetails.networkId && !payoutDetails.bank_code) {
-      return res.status(400).json({
-        error: "payoutDetails must include networkId (Yellow Card bank network ID) or bank_code",
+        error: "payoutDetails must include account_number, account_name, and bank_name",
       });
     }
 
     const flowAmount = parseFloat(amount);
-    if (isNaN(flowAmount) || flowAmount <= 0) {
-      return res.status(400).json({ error: "Invalid FLOW amount" });
+    if (isNaN(flowAmount) || flowAmount < 0.1) {
+      return res.status(400).json({ error: "Minimum sell amount is 0.1 FLOW" });
     }
 
-    // Calculate live quote: how much NGN the user will receive
-    const quote = await rateProvider.calculateSell(flowAmount);
-
-    // Get Bybit FLOW deposit address
-    const flowDepositAddress = await exchangeService.getBybitFLOWDepositAddress();
+    const flowRate = getFlowRate();
+    const estimatedNGN = parseFloat((flowAmount * flowRate).toFixed(2));
 
     const offRampRequest = {
       userId: uid,
       walletAddress,
       amount: flowAmount,
       token: "FLOW",
-      depositAddress: flowDepositAddress,
-      estimatedNGN: quote.netNGN,
-      estimatedUSDT: quote.usdtAmount,
-      rateSnapshot: {
-        flowNGNRate: quote.rates.flowNGNRate,
-        usdtNGNRate: quote.rates.usdtNGNRate,
-        flowUSDTRate: quote.rates.flowUSDTRate,
-      },
-      platformFeeNGN: quote.platformFeeNGN,
+      adminFlowAddress: ADMIN_FLOW_ADDRESS,
+      estimatedNGN,
+      flowNGNRate: flowRate,
       payoutDetails,
       status: "awaiting_flow_deposit",
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     const requestId = await createDocument("offRampRequests", offRampRequest);
 
     res.json({
       requestId,
-      depositAddress: flowDepositAddress,
-      quote: {
-        flowAmount,
-        estimatedNGN: quote.netNGN,
-        estimatedUSDT: quote.usdtAmount,
-        platformFeeNGN: quote.platformFeeNGN,
-        rates: quote.rates,
-      },
-      instructions: `Send exactly ${flowAmount} FLOW to the deposit address below. Your NGN will be sent to your bank account once the deposit is confirmed (typically 10-15 minutes).`,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      adminFlowAddress: ADMIN_FLOW_ADDRESS,
+      estimatedNGN,
+      flowNGNRate: flowRate,
+      flowAmount,
+      instructions: `Send exactly ${flowAmount} FLOW to the address below from your connected wallet, then upload your transaction proof. Your NGN will be sent to your bank account after admin confirmation.`,
     });
   } catch (error) {
     console.error("Create off-ramp request error:", error);
     res.status(500).json({ error: "Failed to create request" });
+  }
+});
+
+/**
+ * @route   POST /api/offramp/submit-proof/:requestId
+ * @desc    User submits FLOW transaction proof after sending FLOW to admin wallet.
+ *          Sets status to awaiting_admin_approval.
+ * @access  Private
+ */
+router.post("/submit-proof/:requestId", protect, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { uid } = req.user;
+    const { proofUrl, txHash, proofNote } = req.body;
+
+    if (!proofUrl && !txHash) {
+      return res.status(400).json({ error: "Must provide proofUrl or txHash" });
+    }
+
+    const request = await getDocument("offRampRequests", requestId);
+
+    if (!request) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+
+    if (request.userId !== uid) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+
+    if (!["awaiting_flow_deposit", "proof_rejected"].includes(request.status)) {
+      return res.status(400).json({ error: `Cannot submit proof for request in status: ${request.status}` });
+    }
+
+    await updateDocument("offRampRequests", requestId, {
+      status: "awaiting_admin_approval",
+      proofUrl: proofUrl || null,
+      txHash: txHash || null,
+      proofNote: proofNote || "",
+      proofSubmittedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Fire-and-forget admin notification
+    notifyNewSellOrder({
+      requestId,
+      userEmail: request.userEmail || req.user.email || "unknown",
+      flowAmount: request.amount,
+      estimatedNGN: request.estimatedNGN,
+      bankDetails: request.payoutDetails || null,
+    }).catch((e) => console.error("[NOTIFIER] Sell alert failed:", e.message));
+
+    res.json({ message: "Proof submitted successfully. Admin will review and process your NGN payout.", requestId });
+  } catch (error) {
+    console.error("Submit proof error:", error);
+    res.status(500).json({ error: "Failed to submit proof" });
   }
 });
 

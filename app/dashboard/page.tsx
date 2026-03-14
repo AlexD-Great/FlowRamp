@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { updateProfile } from "firebase/auth";
 import { fetchOnRampSessions, fetchOffRampRequests, fetchWalletBalance, fetchKYCStatus } from "@/lib/api/dashboard";
+import * as fcl from "@onflow/fcl";
+import "@/lib/flow/config";
 import { BackButton } from "@/components/ui/back-button";
 import { toast } from "sonner";
 import { DashboardSkeleton, TransactionListSkeleton } from "@/components/ui/transaction-skeleton";
@@ -43,6 +45,8 @@ function DashboardContent() {
   const [editingProfile, setEditingProfile] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
   const [loadingBalance, setLoadingBalance] = useState(false);
+  const [flowBalance, setFlowBalance] = useState<string | null>(null);
+  const [loadingFlowBalance, setLoadingFlowBalance] = useState(false);
   const [kycStatus, setKycStatus] = useState<"not_started" | "pending" | "approved" | "rejected">("not_started");
 
   // Filter and sort state
@@ -60,8 +64,41 @@ function DashboardContent() {
     if (user) {
       setDisplayName(user.displayName || "");
       loadDashboardData();
+      // Auto-load FLOW balance if wallet address is saved
+      const savedAddress = localStorage.getItem("flow_wallet_address");
+      if (savedAddress) {
+        setWalletAddress(savedAddress);
+        loadFlowBalance(savedAddress);
+      }
     }
   }, [user]);
+
+  const loadFlowBalance = async (address: string) => {
+    if (!address || !address.startsWith("0x")) return;
+    setLoadingFlowBalance(true);
+    try {
+      const result = await fcl.query({
+        cadence: `
+          import FungibleToken from 0xf233dcee88fe0abe
+          import FlowToken from 0x1654653399040a61
+          access(all) fun main(address: Address): UFix64 {
+            let account = getAccount(address)
+            let vaultRef = account.capabilities
+              .borrow<&FlowToken.Vault>(/public/flowTokenBalance)
+              ?? panic("Could not borrow Balance reference")
+            return vaultRef.balance
+          }
+        `,
+        args: (arg: any, t: any) => [arg(address, t.Address)],
+      });
+      setFlowBalance(parseFloat(result).toFixed(4));
+    } catch (e) {
+      console.error("Failed to load FLOW balance:", e);
+      setFlowBalance(null);
+    } finally {
+      setLoadingFlowBalance(false);
+    }
+  };
 
   useEffect(() => {
     // Handle URL query parameter for tab navigation
@@ -311,7 +348,35 @@ function DashboardContent() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-3" id="dashboard-stats">
+            <div className="grid gap-6 md:grid-cols-4" id="dashboard-stats">
+              {/* FLOW Balance Card */}
+              <Card className="border-blue-200 bg-blue-50/30">
+                <CardHeader className="pb-3">
+                  <CardDescription>FLOW Balance</CardDescription>
+                  <CardTitle className="text-3xl text-blue-600">
+                    {loadingFlowBalance ? (
+                      <span className="text-lg text-muted-foreground animate-pulse">Loading...</span>
+                    ) : flowBalance !== null ? (
+                      flowBalance
+                    ) : (
+                      <span className="text-lg text-muted-foreground">—</span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {flowBalance !== null ? (
+                    <p className="text-sm text-blue-600">Live on-chain balance</p>
+                  ) : (
+                    <button
+                      className="text-xs text-primary underline"
+                      onClick={() => router.push("/wallet")}
+                    >
+                      Connect wallet to view
+                    </button>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Stats Cards */}
               <Card>
                 <CardHeader className="pb-3">
@@ -551,7 +616,7 @@ function DashboardContent() {
                     </Button>
                   </div>
                   <p className="text-xs text-gray-500">
-                    Enter any Flow wallet address to check its balance
+                    {walletAddress ? `Showing balance for ${walletAddress}` : "Enter any Flow wallet address to check its balance"}
                   </p>
                 </div>
 

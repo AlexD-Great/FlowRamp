@@ -63,15 +63,14 @@ const getTransactionStatus = async (txId) => {
 const getServiceWalletBalance = async () => {
   try {
     const cadence = `
-      import FungibleToken from 0xFungibleToken
-      import FlowToken from 0xFlowToken
-      
-      pub fun main(address: Address): UFix64 {
+      import FungibleToken from 0xf233dcee88fe0abe
+      import FlowToken from 0x1654653399040a61
+
+      access(all) fun main(address: Address): UFix64 {
         let account = getAccount(address)
-        
-        let vaultRef = account.borrow<&FlowToken.Vault>(from: /storage/flowTokenVault)
+        let vaultRef = account.capabilities
+          .borrow<&FlowToken.Vault>(/public/flowTokenBalance)
           ?? panic("Could not borrow FlowToken.Vault")
-        
         return vaultRef.balance
       }
     `;

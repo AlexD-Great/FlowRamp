@@ -16,6 +16,7 @@ export const flowConfig = {
 config({
   "accessNode.api": flowConfig.accessNode,
   "discovery.wallet": flowConfig.walletDiscovery,
+  "discovery.authn.endpoint": "https://fcl-discovery.onflow.org/api/authn",
   "flow.network": flowConfig.network,
   "app.detail.title": flowConfig.appTitle,
   "app.detail.icon": flowConfig.appIcon,

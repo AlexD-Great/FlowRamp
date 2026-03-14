@@ -26,7 +26,7 @@ const initializeRates = async () => {
 router.get('/', async (req, res) => {
   try {
     await initializeRates();
-    const ratesData = await fs.readFile(RATES_FILE, 'utf8');
+    const ratesData = (await fs.readFile(RATES_FILE, 'utf8')).replace(/^\uFEFF/, '');
     const rates = JSON.parse(ratesData);
     res.json(rates);
   } catch (error) {
@@ -52,7 +52,7 @@ router.put('/', async (req, res) => {
     await initializeRates();
     
     // Read current rates
-    const ratesData = await fs.readFile(RATES_FILE, 'utf8');
+    const ratesData = (await fs.readFile(RATES_FILE, 'utf8')).replace(/^\uFEFF/, '');
     const currentRates = JSON.parse(ratesData);
     
     // Update rates

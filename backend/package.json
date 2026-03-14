@@ -11,13 +11,14 @@
   "dependencies": {
     "@onflow/fcl": "^1.20.2",
     "@onflow/types": "^1.4.2",
+    "axios": "^1.4.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
+    "elliptic": "^6.5.4",
     "express": "^4.18.2",
     "firebase-admin": "^12.0.0",
-    "elliptic": "^6.5.4",
-    "sha3": "^2.1.4",
-    "axios": "^1.4.0"
+    "nodemailer": "^8.0.2",
+    "sha3": "^2.1.4"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"

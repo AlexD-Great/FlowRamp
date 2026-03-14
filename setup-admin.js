@@ -2,7 +2,7 @@
 // Run: node setup-admin.js admin@example.com
 
 const admin = require('firebase-admin');
-const serviceAccount = require('./path/to/serviceAccountKey.json'); // Download from Firebase
+const serviceAccount = require('./flow-ramp-firebase-adminsdk-fbsvc-f3eeabf52d.json'); // Download from Firebase
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)

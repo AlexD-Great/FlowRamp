@@ -13,12 +13,16 @@ interface AdminGuardProps {
 
 export default function AdminGuard({ children }: AdminGuardProps) {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [checking, setChecking] = useState(false);
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
+    // Wait for Firebase auth to resolve before making any decisions
+    if (authLoading) return;
+
     const checkAdminRole = async () => {
       if (!user) {
         router.push("/signin");
@@ -28,14 +32,15 @@ export default function AdminGuard({ children }: AdminGuardProps) {
       if (!backendUrl) {
         console.error("NEXT_PUBLIC_BACKEND_URL is missing");
         setIsAdmin(false);
-        setLoading(false);
+        setChecked(true);
         return;
       }
 
+      setChecking(true);
       try {
         const response = await fetch(`${backendUrl}/api/admin/check-role`, {
           headers: {
-            Authorization: `Bearer ${await user.getIdToken()}`,
+            Authorization: `Bearer ${await user.getIdToken(true)}`,
           },
         });
 
@@ -49,12 +54,15 @@ export default function AdminGuard({ children }: AdminGuardProps) {
         console.error("Error checking admin role:", error);
         setIsAdmin(false);
       } finally {
-        setLoading(false);
+        setChecking(false);
+        setChecked(true);
       }
     };
 
     checkAdminRole();
-  }, [backendUrl, user, router]);
+  }, [backendUrl, user, router, authLoading]);
+
+  const loading = authLoading || checking || !checked;
 
   if (loading) {
     return (
