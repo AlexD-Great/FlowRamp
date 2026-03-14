@@ -23,6 +23,7 @@ const corsOptions = {
       "http://localhost:3000",
       "https://flowramp.xyz",
       "https://www.flowramp.xyz",
+      "https://flow-ramp.vercel.app",
       process.env.CORS_ORIGIN,
     ].filter(Boolean);
 
