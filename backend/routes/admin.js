@@ -12,6 +12,9 @@ const {
   db,
 } = require("../lib/firebase-admin");
 const { getServiceWalletBalance, sendTransaction, getTransactionStatus, t } = require("../lib/flow-client");
+const { PaymentProvider } = require("../lib/payment-provider");
+
+const paymentProvider = new PaymentProvider();
 
 router.get("/onramp/sessions", adminOnly, async (req, res) => {
   try {
@@ -51,7 +54,7 @@ router.post("/onramp/reopen/:sessionId", adminOnly, async (req, res) => {
     }
 
     await updateDocument("onRampSessions", sessionId, {
-      status: "awaiting_ngn_deposit",
+      status: "awaiting_payment",
       reopenedAt: new Date().toISOString(),
       reopenedBy: req.user.uid,
       updatedAt: new Date().toISOString(),
@@ -230,14 +233,14 @@ router.post("/reject-onramp/:sessionId", adminOnly, async (req, res) => {
 
 /**
  * @route   POST /api/admin/approve-offramp/:requestId
- * @desc    Admin approves an off-ramp request. Records proof of NGN payout
- *          and marks the request as completed. Admin must manually send
- *          NGN to the user's bank account before or after calling this.
+ * @desc    Admin approves an off-ramp request. Automatically initiates a
+ *          Paystack transfer to send NGN to the user's bank account.
+ *          If autoTransfer=false, records a manually-provided paymentReference.
  */
 router.post("/approve-offramp/:requestId", adminOnly, async (req, res) => {
   try {
     const { requestId } = req.params;
-    const { ngnSent, paymentReference, adminNote } = req.body;
+    const { ngnSent, paymentReference, adminNote, autoTransfer = true } = req.body;
     const request = await getDocument("offRampRequests", requestId);
 
     if (!request) {
@@ -250,25 +253,96 @@ router.post("/approve-offramp/:requestId", adminOnly, async (req, res) => {
       });
     }
 
-    if (!ngnSent && !paymentReference) {
-      return res.status(400).json({ error: "ngnSent amount or paymentReference is required" });
-    }
+    const payoutAmount = parseFloat(ngnSent || request.estimatedNGN);
 
+    // Mark as processing
     await updateDocument("offRampRequests", requestId, {
-      status: "completed",
-      ngnSent: ngnSent || request.estimatedNGN,
-      paymentReference: paymentReference || "",
-      adminNote: adminNote || "",
+      status: "processing",
       approvedAt: new Date().toISOString(),
       approvedBy: req.user.uid,
-      completedAt: new Date().toISOString(),
+      adminNote: adminNote || "",
       updatedAt: new Date().toISOString(),
     });
 
-    res.json({ message: "Offramp request approved and marked as completed", requestId });
+    if (autoTransfer && !paymentReference) {
+      // Auto-payout via Paystack Transfer
+      let recipientCode = request.paystackRecipientCode;
+
+      // Create recipient if not already created
+      if (!recipientCode && request.payoutDetails) {
+        const recipient = await paymentProvider.createTransferRecipient({
+          accountName: request.payoutDetails.account_name,
+          accountNumber: request.payoutDetails.account_number,
+          bankCode: request.payoutDetails.bank_code,
+        });
+        recipientCode = recipient.recipientCode;
+      }
+
+      if (!recipientCode) {
+        await updateDocument("offRampRequests", requestId, {
+          status: "awaiting_admin_approval",
+          lastError: "No Paystack recipient code available. Check payout bank details.",
+          updatedAt: new Date().toISOString(),
+        });
+        return res.status(400).json({ error: "Cannot initiate transfer: missing recipient code. Verify bank details." });
+      }
+
+      const payoutRef = `offramp_${requestId}_${Date.now()}`;
+
+      const transfer = await paymentProvider.initiateTransfer({
+        amount: payoutAmount,
+        recipientCode,
+        reason: `FlowRamp sell payout — ${request.amount} FLOW`,
+        reference: payoutRef,
+      });
+
+      await updateDocument("offRampRequests", requestId, {
+        status: "payout_pending",
+        ngnSent: payoutAmount,
+        payoutRef,
+        paystackTransferCode: transfer.transferCode,
+        updatedAt: new Date().toISOString(),
+      });
+
+      console.log(`[ADMIN] Paystack transfer initiated for request ${requestId}: ${payoutRef}`);
+
+      res.json({
+        message: "Offramp approved — NGN payout initiated via Paystack",
+        requestId,
+        transferCode: transfer.transferCode,
+        payoutRef,
+        amount: payoutAmount,
+      });
+    } else {
+      // Manual mode: admin already sent NGN manually
+      if (!paymentReference) {
+        await updateDocument("offRampRequests", requestId, {
+          status: "awaiting_admin_approval",
+          updatedAt: new Date().toISOString(),
+        });
+        return res.status(400).json({ error: "paymentReference is required when autoTransfer is false" });
+      }
+
+      await updateDocument("offRampRequests", requestId, {
+        status: "completed",
+        ngnSent: payoutAmount,
+        paymentReference,
+        completedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      res.json({ message: "Offramp request approved and marked as completed (manual)", requestId });
+    }
   } catch (error) {
     console.error("[ADMIN] Error approving offramp request:", error);
-    res.status(500).json({ error: "Failed to approve request" });
+    try {
+      await updateDocument("offRampRequests", req.params.requestId, {
+        status: "awaiting_admin_approval",
+        lastError: error.message,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (_) {}
+    res.status(500).json({ error: "Failed to approve request: " + error.message });
   }
 });
 
