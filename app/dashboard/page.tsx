@@ -48,6 +48,9 @@ function DashboardContent() {
   const [flowBalance, setFlowBalance] = useState<string | null>(null);
   const [loadingFlowBalance, setLoadingFlowBalance] = useState(false);
   const [kycStatus, setKycStatus] = useState<"not_started" | "pending" | "approved" | "rejected">("not_started");
+  const [bvnInput, setBvnInput] = useState("");
+  const [bvnVerifying, setBvnVerifying] = useState(false);
+  const [bvnVerifiedName, setBvnVerifiedName] = useState<{ firstName: string; lastName: string } | null>(null);
 
   // Filter and sort state
   const [filterType, setFilterType] = useState<"all" | "onramp" | "offramp">("all");
@@ -149,6 +152,9 @@ function DashboardContent() {
       // Fetch KYC status
       const kycData = await fetchKYCStatus(user);
       setKycStatus(kycData.status || "not_started");
+      if (kycData.verifiedName) {
+        setBvnVerifiedName(kycData.verifiedName);
+      }
 
     } catch (error) {
       console.error("Error loading dashboard data:", error);
@@ -714,7 +720,7 @@ function DashboardContent() {
             <Card>
               <CardHeader>
                 <CardTitle>KYC Verification</CardTitle>
-                <CardDescription>Complete your identity verification</CardDescription>
+                <CardDescription>Verify your identity with your BVN (Bank Verification Number)</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* KYC Status Badge */}
@@ -727,6 +733,11 @@ function DashboardContent() {
                       <p className="text-sm mt-1">
                         {getKycStatusMessage(kycStatus)}
                       </p>
+                      {kycStatus === "approved" && bvnVerifiedName && (
+                        <p className="text-sm mt-1 font-medium">
+                          Verified as: {bvnVerifiedName.firstName} {bvnVerifiedName.lastName}
+                        </p>
+                      )}
                     </div>
                     <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center">
                       {kycStatus === "approved" ? (
@@ -756,7 +767,7 @@ function DashboardContent() {
                     <div>
                       <p className="font-medium">Email Verification</p>
                       <p className="text-sm text-gray-600 mt-1">
-                        {user.emailVerified ? "Your email is verified ✓" : "Please verify your email address"}
+                        {user.emailVerified ? "Your email is verified" : "Please verify your email address"}
                       </p>
                     </div>
                     {!user.emailVerified && (
@@ -764,6 +775,78 @@ function DashboardContent() {
                     )}
                   </div>
                 </div>
+
+                {/* BVN Verification Form */}
+                {kycStatus !== "approved" && (
+                  <div className="space-y-4 pt-2">
+                    <div className="p-4 bg-gray-50 border rounded-lg">
+                      <h3 className="font-semibold mb-2">Verify with BVN</h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Enter your 11-digit Bank Verification Number (BVN) to instantly verify your identity.
+                        Verification is powered by Paystack and your data is protected.
+                      </p>
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="bvn-input">BVN (11 digits)</Label>
+                          <Input
+                            id="bvn-input"
+                            placeholder="12345678901"
+                            value={bvnInput}
+                            onChange={(e) => setBvnInput(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                            maxLength={11}
+                            disabled={bvnVerifying}
+                          />
+                          <p className="text-xs text-gray-500">
+                            Dial *565*0# on your registered phone number to get your BVN.
+                          </p>
+                        </div>
+                        <Button
+                          className="w-full"
+                          disabled={bvnInput.length !== 11 || bvnVerifying}
+                          onClick={async () => {
+                            setBvnVerifying(true);
+                            try {
+                              const token = await user.getIdToken();
+                              const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/kyc/verify-bvn`, {
+                                method: "POST",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                  Authorization: `Bearer ${token}`,
+                                },
+                                body: JSON.stringify({ bvn: bvnInput }),
+                              });
+                              const data = await response.json();
+                              if (response.ok && data.verified) {
+                                setKycStatus("approved");
+                                setBvnVerifiedName(data.verifiedName);
+                                toast.success("BVN verified! Your KYC is now approved.");
+                              } else {
+                                toast.error(data.error || data.message || "BVN verification failed. Please check your BVN and try again.");
+                                if (data.message?.includes("not found")) {
+                                  setKycStatus("rejected");
+                                }
+                              }
+                            } catch (error) {
+                              console.error("BVN verification error:", error);
+                              toast.error("Verification service temporarily unavailable. Please try again later.");
+                            } finally {
+                              setBvnVerifying(false);
+                            }
+                          }}
+                        >
+                          {bvnVerifying ? (
+                            <>
+                              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
+                              Verifying BVN...
+                            </>
+                          ) : (
+                            "Verify BVN"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* KYC Features */}
                 <div className="space-y-4">
@@ -773,7 +856,7 @@ function DashboardContent() {
                       <svg className="h-5 w-5 text-green-600" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
                         <path d="M5 13l4 4L19 7"></path>
                       </svg>
-                      <span>Higher transaction limits</span>
+                      <span>Higher transaction limits (up to ₦100,000 per transaction)</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <svg className="h-5 w-5 text-green-600" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
@@ -785,30 +868,24 @@ function DashboardContent() {
                       <svg className="h-5 w-5 text-green-600" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
                         <path d="M5 13l4 4L19 7"></path>
                       </svg>
-                      <span>Access to premium features</span>
+                      <span>Daily limit up to ₦50,000</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <svg className="h-5 w-5 text-green-600" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
                         <path d="M5 13l4 4L19 7"></path>
                       </svg>
-                      <span>Enhanced account security</span>
+                      <span>Monthly limit up to ₦1,000,000</span>
                     </li>
                   </ul>
                 </div>
 
-                {kycStatus === "pending" && (
-                  <div className="pt-4 border-t">
-                    <p className="text-sm text-gray-600 mb-4">
-                      <strong>What's next?</strong> Our team is reviewing your documents. 
-                      This usually takes 1-2 business days. We'll email you once approved.
+                {kycStatus === "rejected" && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-800">
+                      <strong>Verification failed.</strong> Please double-check your BVN and try again.
+                      If the issue persists, contact support.
                     </p>
                   </div>
-                )}
-
-                {kycStatus !== "approved" && (
-                  <Button className="w-full" disabled={kycStatus === "pending"}>
-                    {kycStatus === "pending" ? "Verification Pending..." : "Start KYC Verification"}
-                  </Button>
                 )}
               </CardContent>
             </Card>

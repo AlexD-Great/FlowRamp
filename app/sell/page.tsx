@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useAuth, signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/firebase/auth"
 import { toast } from "sonner"
 import { BackButton } from "@/components/ui/back-button"
@@ -11,16 +11,21 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import {
   Copy, CheckCircle2, Clock, XCircle, Upload, RefreshCw,
-  ImageIcon, AlertCircle, Zap, Landmark, ArrowRightLeft, Wallet, LogIn, UserPlus, Loader2
+  ImageIcon, AlertCircle, Landmark, ArrowRightLeft, Wallet, LogIn, UserPlus, Loader2, ShieldCheck
 } from "lucide-react"
 
 type ViewState = "form" | "deposit" | "proof" | "pending"
+
+interface Bank {
+  name: string
+  code: string
+}
 
 interface BankDetails {
   account_number: string
   account_name: string
   bank_name: string
-  bank_code?: string
+  bank_code: string
 }
 
 interface Request {
@@ -53,9 +58,11 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
   awaiting_flow_deposit: { label: "Awaiting FLOW", color: "bg-yellow-100 text-yellow-800 border-yellow-200", icon: <Clock className="h-3 w-3" /> },
   awaiting_admin_approval: { label: "Under Review", color: "bg-blue-100 text-blue-800 border-blue-200", icon: <Clock className="h-3 w-3" /> },
   processing: { label: "Processing", color: "bg-purple-100 text-purple-800 border-purple-200", icon: <RefreshCw className="h-3 w-3 animate-spin" /> },
+  payout_pending: { label: "Sending NGN", color: "bg-purple-100 text-purple-800 border-purple-200", icon: <RefreshCw className="h-3 w-3 animate-spin" /> },
   completed: { label: "Completed", color: "bg-green-100 text-green-800 border-green-200", icon: <CheckCircle2 className="h-3 w-3" /> },
   rejected: { label: "Rejected", color: "bg-red-100 text-red-800 border-red-200", icon: <XCircle className="h-3 w-3" /> },
   failed: { label: "Failed", color: "bg-red-100 text-red-800 border-red-200", icon: <XCircle className="h-3 w-3" /> },
+  payout_failed: { label: "Payout Failed", color: "bg-red-100 text-red-800 border-red-200", icon: <XCircle className="h-3 w-3" /> },
   proof_rejected: { label: "Proof Rejected", color: "bg-orange-100 text-orange-800 border-orange-200", icon: <AlertCircle className="h-3 w-3" /> },
 }
 
@@ -156,10 +163,15 @@ export default function SellPage() {
   // Form fields
   const [walletAddress, setWalletAddress] = useState("")
   const [flowAmount, setFlowAmount] = useState("")
+
+  // Bank fields
+  const [banks, setBanks] = useState<Bank[]>([])
+  const [loadingBanks, setLoadingBanks] = useState(false)
+  const [selectedBankCode, setSelectedBankCode] = useState("")
   const [bankAccountNumber, setBankAccountNumber] = useState("")
   const [bankAccountName, setBankAccountName] = useState("")
-  const [bankName, setBankName] = useState("")
-  const [bankCode, setBankCode] = useState("")
+  const [resolvingAccount, setResolvingAccount] = useState(false)
+  const [bankSearchQuery, setBankSearchQuery] = useState("")
 
   // Proof upload
   const [proofFile, setProofFile] = useState<File | null>(null)
@@ -173,30 +185,20 @@ export default function SellPage() {
   const flowRate = requestCreateData?.flowNGNRate || 2000
   const estimatedNGN = flowAmount ? parseFloat((parseFloat(flowAmount) * flowRate).toFixed(2)) : 0
 
-  useEffect(() => {
-    if (user) {
-      loadRequests()
-      const saved = localStorage.getItem("flow_wallet_address")
-      if (saved) setWalletAddress(saved)
-    }
-  }, [user])
+  const selectedBank = banks.find(b => b.code === selectedBankCode)
+  const filteredBanks = bankSearchQuery
+    ? banks.filter(b => b.name.toLowerCase().includes(bankSearchQuery.toLowerCase()))
+    : banks
 
-  useEffect(() => {
-    if (currentRequest && ["awaiting_admin_approval", "processing"].includes(currentRequest.status)) {
-      const interval = setInterval(() => pollRequest(currentRequest.id), 8000)
-      return () => clearInterval(interval)
-    }
-  }, [currentRequest])
-
-  const getAuthHeaders = async (): Promise<HeadersInit | undefined> => {
+  const getAuthHeaders = useCallback(async (): Promise<HeadersInit | undefined> => {
     if (!user) return undefined
     return {
       "Content-Type": "application/json",
       Authorization: `Bearer ${await user.getIdToken()}`,
     }
-  }
+  }, [user])
 
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async () => {
     if (!user) return
     setIsFetchingRequests(true)
     try {
@@ -210,6 +212,77 @@ export default function SellPage() {
       console.error("Failed to load requests:", e)
     } finally {
       setIsFetchingRequests(false)
+    }
+  }, [user, getAuthHeaders])
+
+  const loadBanks = useCallback(async () => {
+    if (!user || banks.length > 0) return
+    setLoadingBanks(true)
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/banks`, { headers })
+      if (res.ok) {
+        const data = await res.json()
+        setBanks(data.banks || [])
+      }
+    } catch (e) {
+      console.error("Failed to load banks:", e)
+    } finally {
+      setLoadingBanks(false)
+    }
+  }, [user, banks.length, getAuthHeaders])
+
+  useEffect(() => {
+    if (user) {
+      loadRequests()
+      loadBanks()
+      const saved = localStorage.getItem("flow_wallet_address")
+      if (saved) setWalletAddress(saved)
+    }
+  }, [user, loadRequests, loadBanks])
+
+  useEffect(() => {
+    if (currentRequest && ["awaiting_admin_approval", "processing", "payout_pending"].includes(currentRequest.status)) {
+      const interval = setInterval(() => pollRequest(currentRequest.id), 8000)
+      return () => clearInterval(interval)
+    }
+  }, [currentRequest])
+
+  // Auto-resolve account when bank and account number are complete
+  useEffect(() => {
+    if (selectedBankCode && bankAccountNumber.length === 10) {
+      resolveAccount()
+    } else {
+      setBankAccountName("")
+    }
+  }, [selectedBankCode, bankAccountNumber])
+
+  const resolveAccount = async () => {
+    if (!selectedBankCode || bankAccountNumber.length !== 10) return
+    setResolvingAccount(true)
+    setBankAccountName("")
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/resolve-account`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ accountNumber: bankAccountNumber, bankCode: selectedBankCode }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setBankAccountName(data.accountName || "")
+        if (data.accountName) {
+          toast.success(`Account verified: ${data.accountName}`)
+        }
+      } else {
+        const err = await res.json()
+        toast.error(err.error || "Could not verify account")
+      }
+    } catch (e) {
+      console.error("Resolve account error:", e)
+      toast.error("Failed to verify account. Please check details.")
+    } finally {
+      setResolvingAccount(false)
     }
   }
 
@@ -243,14 +316,14 @@ export default function SellPage() {
     if (!flowAmount || isNaN(amount) || amount < 0.1) {
       toast.error("Minimum sell amount is 0.1 FLOW"); return
     }
-    if (!bankAccountNumber || bankAccountNumber.length < 10) {
+    if (!selectedBankCode) {
+      toast.error("Please select your bank"); return
+    }
+    if (bankAccountNumber.length !== 10) {
       toast.error("Please enter a valid 10-digit bank account number"); return
     }
-    if (!bankAccountName.trim()) {
-      toast.error("Please enter the account name"); return
-    }
-    if (!bankName.trim()) {
-      toast.error("Please enter your bank name"); return
+    if (!bankAccountName) {
+      toast.error("Account name not verified. Please wait for verification or check your details."); return
     }
 
     setIsLoading(true)
@@ -265,8 +338,8 @@ export default function SellPage() {
           payoutDetails: {
             account_number: bankAccountNumber,
             account_name: bankAccountName,
-            bank_name: bankName,
-            bank_code: bankCode,
+            bank_name: selectedBank?.name || "",
+            bank_code: selectedBankCode,
           },
         }),
       })
@@ -314,7 +387,7 @@ export default function SellPage() {
         const err = await res.json()
         throw new Error(err.error || "Failed to submit proof")
       }
-      toast.success("Proof submitted! Admin will verify and process your NGN payout.")
+      toast.success("Proof submitted! Your NGN will be sent automatically after verification.")
       const reqRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/offramp/request/${requestId}`, {
         headers: await getAuthHeaders(),
       })
@@ -366,7 +439,7 @@ export default function SellPage() {
         <div className="text-center mb-10">
           <h1 className="text-4xl font-bold mb-3">Sell FLOW</h1>
           <p className="text-muted-foreground max-w-lg mx-auto">
-            Send FLOW to our wallet, upload your proof, and receive NGN in your bank after admin confirmation.
+            Send FLOW to our wallet and receive NGN automatically in your bank account via Paystack.
           </p>
         </div>
 
@@ -375,7 +448,7 @@ export default function SellPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><ArrowRightLeft className="h-5 w-5" /> Sell FLOW for NGN</CardTitle>
-              <CardDescription>Enter the amount you want to sell and your bank account for NGN payout.</CardDescription>
+              <CardDescription>Enter the amount to sell and select your bank for automatic NGN payout.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="space-y-2">
@@ -424,8 +497,49 @@ export default function SellPage() {
                 <h3 className="font-semibold flex items-center gap-2 mb-4"><Landmark className="h-4 w-4" /> Receiving Bank Account</h3>
                 <div className="space-y-3">
                   <div className="space-y-1.5">
-                    <Label>Bank Name</Label>
-                    <Input placeholder="e.g. Access Bank" value={bankName} onChange={e => setBankName(e.target.value)} />
+                    <Label>Bank</Label>
+                    {loadingBanks ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Loading banks...
+                      </div>
+                    ) : (
+                      <>
+                        <Input
+                          placeholder="Search your bank..."
+                          value={bankSearchQuery}
+                          onChange={e => setBankSearchQuery(e.target.value)}
+                          className="mb-2"
+                        />
+                        {bankSearchQuery && filteredBanks.length > 0 && !selectedBankCode && (
+                          <div className="max-h-40 overflow-y-auto border rounded-lg bg-white">
+                            {filteredBanks.slice(0, 10).map(bank => (
+                              <button
+                                key={bank.code}
+                                className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b last:border-0"
+                                onClick={() => {
+                                  setSelectedBankCode(bank.code)
+                                  setBankSearchQuery(bank.name)
+                                }}
+                              >
+                                {bank.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {selectedBank && (
+                          <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                            <span className="text-sm font-medium text-green-800">{selectedBank.name}</span>
+                            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => {
+                              setSelectedBankCode("")
+                              setBankSearchQuery("")
+                              setBankAccountName("")
+                            }}>
+                              Change
+                            </Button>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label>Account Number</Label>
@@ -438,13 +552,32 @@ export default function SellPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label>Account Name</Label>
-                    <Input placeholder="e.g. John Doe" value={bankAccountName} onChange={e => setBankAccountName(e.target.value)} />
+                    {resolvingAccount ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground py-2 px-3 border rounded-lg bg-muted/30">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Verifying account...
+                      </div>
+                    ) : bankAccountName ? (
+                      <div className="flex items-center gap-2 px-3 py-2 border rounded-lg bg-green-50 border-green-200">
+                        <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                        <span className="font-medium text-green-800">{bankAccountName}</span>
+                      </div>
+                    ) : (
+                      <div className="px-3 py-2 border rounded-lg bg-muted/30 text-sm text-muted-foreground">
+                        {selectedBankCode && bankAccountNumber.length === 10
+                          ? "Could not verify account. Check details."
+                          : "Select bank and enter account number to verify"}
+                      </div>
+                    )}
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">NGN will be sent directly to this account after admin approval.</p>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 flex items-start gap-2 mt-3">
+                  <ShieldCheck className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>NGN will be sent <strong>automatically via Paystack</strong> to this account after admin verifies your FLOW transfer.</span>
+                </div>
               </div>
 
-              <Button className="w-full" size="lg" onClick={handleCreateRequest} disabled={isLoading}>
+              <Button className="w-full" size="lg" onClick={handleCreateRequest} disabled={isLoading || !bankAccountName}>
                 {isLoading ? "Creating Order..." : "Get Deposit Instructions"}
               </Button>
             </CardContent>
@@ -483,7 +616,7 @@ export default function SellPage() {
                 </div>
 
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                  ⚠️ Send the <strong>exact amount</strong> shown. Only send from your registered wallet address.
+                  Send the <strong>exact amount</strong> shown. Only send from your registered wallet address.
                 </div>
               </CardContent>
             </Card>
@@ -494,7 +627,10 @@ export default function SellPage() {
                   <p className="text-sm text-muted-foreground">You will receive approximately</p>
                   <p className="text-3xl font-bold text-green-700 mt-1">~₦{requestCreateData.estimatedNGN.toLocaleString()}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    to {bankAccountName} — {bankName} ({bankAccountNumber})
+                    to {bankAccountName} — {selectedBank?.name || ""} ({bankAccountNumber})
+                  </p>
+                  <p className="text-xs text-blue-700 mt-2 flex items-center justify-center gap-1">
+                    <ShieldCheck className="h-3 w-3" /> Paid automatically via Paystack
                   </p>
                 </div>
               </CardContent>
@@ -573,8 +709,19 @@ export default function SellPage() {
         {viewState === "pending" && currentRequest && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5 text-blue-600" /> Request Under Review</CardTitle>
-              <CardDescription>Your FLOW transfer proof has been submitted. The admin will verify and send your NGN payout.</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                {currentRequest.status === "completed" ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                ) : (
+                  <Clock className="h-5 w-5 text-blue-600" />
+                )}
+                {currentRequest.status === "completed" ? "Payout Complete" : "Request In Progress"}
+              </CardTitle>
+              <CardDescription>
+                {currentRequest.status === "completed"
+                  ? "Your NGN has been sent to your bank account."
+                  : "Your FLOW transfer proof has been submitted. NGN will be sent automatically after verification."}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 space-y-3">
@@ -595,7 +742,7 @@ export default function SellPage() {
                     <span className="text-muted-foreground">Payout To</span>
                     <span className="text-right text-xs">
                       {currentRequest.payoutDetails.bank_name}<br />
-                      {currentRequest.payoutDetails.account_number}
+                      {currentRequest.payoutDetails.account_number} — {currentRequest.payoutDetails.account_name}
                     </span>
                   </div>
                 )}
@@ -622,6 +769,14 @@ export default function SellPage() {
                   {currentRequest.paymentReference && (
                     <p className="text-xs font-mono mt-2 text-muted-foreground">Ref: {currentRequest.paymentReference}</p>
                   )}
+                </div>
+              )}
+
+              {currentRequest.status === "payout_failed" && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+                  <XCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
+                  <p className="font-bold text-red-700">Payout Failed</p>
+                  <p className="text-sm text-muted-foreground mt-1">There was an issue sending NGN to your bank. Our team has been notified and will resolve this.</p>
                 </div>
               )}
 
@@ -675,12 +830,6 @@ export default function SellPage() {
                   </Card>
                 )
               })}
-            </div>
-            <div className="mt-4 p-3 bg-muted/50 rounded-lg text-center border border-dashed">
-              <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
-                <Zap className="h-4 w-4 text-primary" />
-                Automated deposits &amp; payouts coming soon
-              </p>
             </div>
           </div>
         )}
