@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Suspense } from "react"
 import { useAuth, signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/firebase/auth"
 import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
@@ -134,7 +134,7 @@ function AuthGate() {
   )
 }
 
-export default function BuyPage() {
+function BuyPageContent() {
   const { user, loading } = useAuth()
   const searchParams = useSearchParams()
   const [viewState, setViewState] = useState<ViewState>("form")
@@ -546,5 +546,13 @@ export default function BuyPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function BuyPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
+      <BuyPageContent />
+    </Suspense>
   )
 }
