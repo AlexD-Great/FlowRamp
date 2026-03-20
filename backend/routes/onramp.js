@@ -6,23 +6,18 @@ const { createDocument, getDocument, updateDocument, queryDocuments, getUserById
 const { protect } = require("../lib/auth");
 const { executeScript, t } = require("../lib/flow-client");
 const { notifyNewBuyOrder } = require("../lib/notifier");
+const { PaymentProvider } = require("../lib/payment-provider");
 
-// Admin bank account details — set via environment variables
-const ADMIN_BANK_DETAILS = {
-  accountName: process.env.ADMIN_BANK_ACCOUNT_NAME || "FlowRamp Operations",
-  accountNumber: process.env.ADMIN_BANK_ACCOUNT_NUMBER || "0000000000",
-  bankName: process.env.ADMIN_BANK_NAME || "Access Bank",
-  bankCode: process.env.ADMIN_BANK_CODE || "044",
-};
+const paymentProvider = new PaymentProvider();
 
 // FLOW rate (NGN per 1 FLOW) — set via environment variable or fallback
 const getFlowRate = () => parseFloat(process.env.FLOW_NGN_RATE || "2000");
 
 /**
  * @route   POST /api/onramp/create-session
- * @desc    Create a manual on-ramp session. Returns admin bank details for
- *          the user to manually transfer NGN. User then uploads proof.
- *          Admin reviews proof and manually deposits FLOW to user wallet.
+ * @desc    Create an on-ramp session and initialize a Paystack payment.
+ *          Returns a Paystack authorization URL for the user to pay NGN.
+ *          After payment, Paystack webhook confirms and admin sends FLOW.
  * @access  Private
  */
 router.post("/create-session", protect, async (req, res) => {
@@ -51,6 +46,22 @@ router.post("/create-session", protect, async (req, res) => {
     const flowRate = getFlowRate();
     const estimatedFLOW = parseFloat((ngnAmount / flowRate).toFixed(4));
 
+    // Initialize Paystack transaction
+    const callbackUrl = process.env.PAYSTACK_CALLBACK_URL || `${process.env.FRONTEND_URL || process.env.CORS_ORIGIN || "http://localhost:3000"}/buy?status=callback`;
+
+    const paystackResult = await paymentProvider.initializeTransaction({
+      amount: ngnAmount,
+      email: userEmail,
+      metadata: {
+        userId: uid,
+        walletAddress,
+        estimatedFLOW,
+        flowNGNRate: flowRate,
+        type: "onramp",
+      },
+      callbackUrl,
+    });
+
     const session = {
       userId: uid,
       userEmail,
@@ -60,8 +71,9 @@ router.post("/create-session", protect, async (req, res) => {
       token: "FLOW",
       estimatedFLOW,
       flowNGNRate: flowRate,
-      status: "awaiting_ngn_deposit",
-      adminBankDetails: ADMIN_BANK_DETAILS,
+      status: "awaiting_payment",
+      paymentRef: paystackResult.reference,
+      paystackAccessCode: paystackResult.accessCode,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -70,87 +82,84 @@ router.post("/create-session", protect, async (req, res) => {
 
     res.json({
       sessionId,
-      bankDetails: ADMIN_BANK_DETAILS,
+      authorizationUrl: paystackResult.authorizationUrl,
+      accessCode: paystackResult.accessCode,
+      paymentRef: paystackResult.reference,
       estimatedFLOW,
       flowNGNRate: flowRate,
       ngnAmount,
-      instructions: `Transfer exactly ₦${ngnAmount.toLocaleString()} to the account below, then upload your payment proof. Your FLOW tokens will be sent to ${walletAddress} after admin confirmation.`,
     });
   } catch (error) {
     console.error("Create session error:", error);
-    res.status(500).json({ error: "Failed to create session" });
+    res.status(500).json({ error: error.message || "Failed to create session" });
   }
 });
 
 /**
- * @route   GET /api/onramp/bank-details
- * @desc    Get the admin bank account details for NGN deposits.
+ * @route   GET /api/onramp/verify-payment/:sessionId
+ * @desc    Verify payment status for a session (called after Paystack redirect).
+ *          If payment is confirmed, status moves to awaiting_admin_approval.
  * @access  Private
  */
-router.get("/bank-details", protect, async (req, res) => {
-  try {
-    const flowRate = getFlowRate();
-    res.json({
-      bankDetails: ADMIN_BANK_DETAILS,
-      flowNGNRate: flowRate,
-    });
-  } catch (error) {
-    console.error("Get bank details error:", error);
-    res.status(500).json({ error: "Failed to get bank details" });
-  }
-});
-
-/**
- * @route   POST /api/onramp/submit-proof/:sessionId
- * @desc    User submits payment proof (base64 image URL or cloud URL) after
- *          transferring NGN. Sets status to awaiting_admin_approval.
- * @access  Private
- */
-router.post("/submit-proof/:sessionId", protect, async (req, res) => {
+router.get("/verify-payment/:sessionId", protect, async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { uid } = req.user;
-    const { proofUrl, proofNote } = req.body;
-
-    if (!proofUrl) {
-      return res.status(400).json({ error: "Missing proofUrl" });
-    }
 
     const session = await getDocument("onRampSessions", sessionId);
-
     if (!session) {
       return res.status(404).json({ error: "Session not found" });
     }
-
     if (session.userId !== uid) {
       return res.status(403).json({ error: "Not authorized" });
     }
 
-    if (!["awaiting_ngn_deposit", "proof_rejected"].includes(session.status)) {
-      return res.status(400).json({ error: `Cannot submit proof for session in status: ${session.status}` });
+    // If already confirmed, just return current status
+    if (["awaiting_admin_approval", "processing", "completed"].includes(session.status)) {
+      return res.json({ status: session.status, message: "Payment already confirmed." });
     }
 
-    await updateDocument("onRampSessions", sessionId, {
-      status: "awaiting_admin_approval",
-      proofUrl,
-      proofNote: proofNote || "",
-      proofSubmittedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
+    if (!session.paymentRef) {
+      return res.status(400).json({ error: "No payment reference found for this session." });
+    }
 
-    // Fire-and-forget admin notification
-    notifyNewBuyOrder({
-      sessionId,
-      userEmail: session.userEmail || req.user.email || "unknown",
-      fiatAmount: session.fiatAmount,
-      estimatedFLOW: session.estimatedFLOW,
-      walletAddress: session.walletAddress,
-    }).catch((e) => console.error("[NOTIFIER] Buy alert failed:", e.message));
+    // Verify with Paystack
+    const verification = await paymentProvider.verifyTransaction(session.paymentRef);
 
-    res.json({ message: "Proof submitted successfully. Admin will review and process your request.", sessionId });
+    if (verification.status === "success") {
+      // Verify amount matches
+      if (verification.amount !== session.fiatAmount) {
+        await updateDocument("onRampSessions", sessionId, {
+          status: "failed",
+          error: `Amount mismatch: expected ₦${session.fiatAmount}, got ₦${verification.amount}`,
+          updatedAt: new Date().toISOString(),
+        });
+        return res.status(400).json({ error: "Payment amount does not match the session amount." });
+      }
+
+      await updateDocument("onRampSessions", sessionId, {
+        status: "awaiting_admin_approval",
+        paymentConfirmedAt: new Date().toISOString(),
+        paymentChannel: verification.channel,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Notify admin
+      notifyNewBuyOrder({
+        sessionId,
+        userEmail: session.userEmail,
+        fiatAmount: session.fiatAmount,
+        estimatedFLOW: session.estimatedFLOW,
+        walletAddress: session.walletAddress,
+      }).catch((e) => console.error("[NOTIFIER] Buy alert failed:", e.message));
+
+      return res.json({ status: "awaiting_admin_approval", message: "Payment confirmed! Admin will review and send your FLOW." });
+    }
+
+    res.json({ status: session.status, paymentStatus: verification.status, message: "Payment not yet confirmed." });
   } catch (error) {
-    console.error("Submit proof error:", error);
-    res.status(500).json({ error: "Failed to submit proof" });
+    console.error("Verify payment error:", error);
+    res.status(500).json({ error: "Failed to verify payment" });
   }
 });
 
@@ -201,7 +210,6 @@ router.get("/session/:sessionId", protect, async (req, res) => {
 /**
  * @route   GET /api/onramp/check-vault/:address
  * @desc    Checks if a Flow wallet address has a FLOW token vault set up.
- *          Uses the hasVault.cdc script on-chain. Returns { hasVault: bool }.
  * @access  Private
  */
 router.get("/check-vault/:address", protect, async (req, res) => {
@@ -216,7 +224,6 @@ router.get("/check-vault/:address", protect, async (req, res) => {
       "utf8"
     );
 
-    // /public/flowTokenBalance is the standard public balance path for FLOW
     const result = await executeScript(cadence, [
       [address, t.Address],
       [{ domain: "public", identifier: "flowTokenBalance" }, t.Path],
@@ -225,7 +232,6 @@ router.get("/check-vault/:address", protect, async (req, res) => {
     res.json({ address, hasVault: !!result });
   } catch (error) {
     console.error("[ONRAMP] check-vault error:", error);
-    // If script execution fails, assume vault exists to avoid blocking users
     res.json({ address: req.params.address, hasVault: true, warning: "Could not verify vault status" });
   }
 });

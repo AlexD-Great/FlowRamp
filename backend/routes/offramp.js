@@ -3,6 +3,9 @@ const router = express.Router();
 const { createDocument, getDocument, updateDocument, queryDocuments } = require("../lib/firebase-admin");
 const { protect } = require("../lib/auth");
 const { notifyNewSellOrder } = require("../lib/notifier");
+const { PaymentProvider } = require("../lib/payment-provider");
+
+const paymentProvider = new PaymentProvider();
 
 // Admin FLOW wallet address — users send FLOW here to initiate sell
 const ADMIN_FLOW_ADDRESS = process.env.ADMIN_FLOW_ADDRESS || process.env.FLOW_ACCOUNT_ADDRESS || "0x0000000000000000";
@@ -28,11 +31,51 @@ router.get("/deposit-address", protect, async (req, res) => {
 });
 
 /**
+ * @route   GET /api/offramp/banks
+ * @desc    Get list of Nigerian banks from Paystack for bank selection.
+ * @access  Private
+ */
+router.get("/banks", protect, async (req, res) => {
+  try {
+    const banks = await paymentProvider.getBankList();
+    res.json({ banks });
+  } catch (error) {
+    console.error("Get bank list error:", error);
+    res.status(500).json({ error: "Failed to fetch bank list" });
+  }
+});
+
+/**
+ * @route   POST /api/offramp/resolve-account
+ * @desc    Resolve a bank account number to get the account holder name.
+ * @access  Private
+ */
+router.post("/resolve-account", protect, async (req, res) => {
+  try {
+    const { accountNumber, bankCode } = req.body;
+
+    if (!accountNumber || !bankCode) {
+      return res.status(400).json({ error: "accountNumber and bankCode are required" });
+    }
+
+    if (accountNumber.length !== 10 || !/^\d+$/.test(accountNumber)) {
+      return res.status(400).json({ error: "Account number must be exactly 10 digits" });
+    }
+
+    const result = await paymentProvider.resolveAccountNumber(accountNumber, bankCode);
+    res.json(result);
+  } catch (error) {
+    console.error("Resolve account error:", error);
+    res.status(400).json({ error: error.message || "Failed to resolve account" });
+  }
+});
+
+/**
  * @route   POST /api/offramp/request
- * @desc    Create a manual off-ramp request. User specifies FLOW amount and
- *          their receiving bank account. Admin FLOW wallet address is returned
- *          for user to send FLOW to, then user uploads proof.
- *          Admin reviews and manually sends NGN to user's bank account.
+ * @desc    Create an off-ramp request. User specifies FLOW amount and bank details.
+ *          Bank account is verified via Paystack before creating the request.
+ *          User then sends FLOW to admin wallet and submits tx hash as proof.
+ *          Admin approves → Paystack automatically transfers NGN to user's bank.
  * @access  Private
  */
 router.post("/request", protect, async (req, res) => {
@@ -44,9 +87,9 @@ router.post("/request", protect, async (req, res) => {
       return res.status(400).json({ error: "Missing required fields: walletAddress, amount, payoutDetails" });
     }
 
-    if (!payoutDetails.account_number || !payoutDetails.account_name || !payoutDetails.bank_name) {
+    if (!payoutDetails.account_number || !payoutDetails.account_name || !payoutDetails.bank_name || !payoutDetails.bank_code) {
       return res.status(400).json({
-        error: "payoutDetails must include account_number, account_name, and bank_name",
+        error: "payoutDetails must include account_number, account_name, bank_name, and bank_code",
       });
     }
 
@@ -58,6 +101,20 @@ router.post("/request", protect, async (req, res) => {
     const flowRate = getFlowRate();
     const estimatedNGN = parseFloat((flowAmount * flowRate).toFixed(2));
 
+    // Pre-create a Paystack transfer recipient so payout is ready on approval
+    let recipientCode = null;
+    try {
+      const recipient = await paymentProvider.createTransferRecipient({
+        accountName: payoutDetails.account_name,
+        accountNumber: payoutDetails.account_number,
+        bankCode: payoutDetails.bank_code,
+      });
+      recipientCode = recipient.recipientCode;
+    } catch (err) {
+      console.warn("[OFFRAMP] Could not pre-create transfer recipient:", err.message);
+      // Non-blocking: admin can still manually process if recipient creation fails
+    }
+
     const offRampRequest = {
       userId: uid,
       walletAddress,
@@ -67,6 +124,7 @@ router.post("/request", protect, async (req, res) => {
       estimatedNGN,
       flowNGNRate: flowRate,
       payoutDetails,
+      paystackRecipientCode: recipientCode,
       status: "awaiting_flow_deposit",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -80,7 +138,7 @@ router.post("/request", protect, async (req, res) => {
       estimatedNGN,
       flowNGNRate: flowRate,
       flowAmount,
-      instructions: `Send exactly ${flowAmount} FLOW to the address below from your connected wallet, then upload your transaction proof. Your NGN will be sent to your bank account after admin confirmation.`,
+      instructions: `Send exactly ${flowAmount} FLOW to the address below from your connected wallet, then submit your transaction hash. Your ₦${estimatedNGN.toLocaleString()} will be sent automatically to your bank after admin confirmation.`,
     });
   } catch (error) {
     console.error("Create off-ramp request error:", error);
@@ -90,8 +148,7 @@ router.post("/request", protect, async (req, res) => {
 
 /**
  * @route   POST /api/offramp/submit-proof/:requestId
- * @desc    User submits FLOW transaction proof after sending FLOW to admin wallet.
- *          Sets status to awaiting_admin_approval.
+ * @desc    User submits FLOW transaction proof (tx hash) after sending FLOW.
  * @access  Private
  */
 router.post("/submit-proof/:requestId", protect, async (req, res) => {
@@ -136,7 +193,7 @@ router.post("/submit-proof/:requestId", protect, async (req, res) => {
       bankDetails: request.payoutDetails || null,
     }).catch((e) => console.error("[NOTIFIER] Sell alert failed:", e.message));
 
-    res.json({ message: "Proof submitted successfully. Admin will review and process your NGN payout.", requestId });
+    res.json({ message: "Proof submitted successfully. Admin will verify and your NGN will be sent automatically.", requestId });
   } catch (error) {
     console.error("Submit proof error:", error);
     res.status(500).json({ error: "Failed to submit proof" });
@@ -175,7 +232,6 @@ router.get("/request/:requestId", protect, async (req, res) => {
       return res.status(404).json({ error: "Request not found" });
     }
 
-    // Ensure the user is authorized to view this request
     if (request.userId !== uid) {
       return res.status(403).json({ error: "Not authorized" });
     }
