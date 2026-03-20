@@ -18,12 +18,15 @@ interface TransactionTableProps {
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   completed: "default",
   processing: "secondary",
+  awaiting_payment: "outline",
   collection_pending: "outline",
   awaiting_ngn_deposit: "outline",
   ngn_deposit_confirmed: "secondary",
   awaiting_flow_deposit: "outline",
   flow_deposit_confirmed: "secondary",
+  payout_pending: "secondary",
   ngn_payout_pending: "secondary",
+  payout_failed: "destructive",
   collection_failed: "destructive",
   ngn_payout_failed: "destructive",
   pipeline_failed: "destructive",
@@ -39,6 +42,7 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | 
 
 const ACTIONABLE_STATUSES = new Set([
   "awaiting_admin_approval",
+  "awaiting_payment",
   "awaiting_ngn_deposit",
   "collection_pending",
   "collection_failed",
@@ -46,6 +50,7 @@ const ACTIONABLE_STATUSES = new Set([
   "pipeline_failed",
   "awaiting_flow_deposit",
   "flow_deposit_confirmed",
+  "payout_failed",
 ])
 
 export function TransactionTable({

@@ -1,6 +1,7 @@
 // Database types for FlowRamp application
 
 export type SessionStatus =
+  | "awaiting_payment"
   | "awaiting_ngn_deposit"
   | "collection_pending"
   | "collection_failed"
@@ -19,6 +20,8 @@ export type OffRampStatus =
   | "awaiting_flow_deposit"
   | "flow_deposit_confirmed"
   | "processing"
+  | "payout_pending"
+  | "payout_failed"
   | "ngn_payout_pending"
   | "ngn_payout_failed"
   | "completed"
