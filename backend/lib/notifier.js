@@ -17,13 +17,9 @@ const https = require("https");
 
 // ── Telegram ────────────────────────────────────────────────────────────────
 
-function sendTelegram(message) {
-  return new Promise((resolve, reject) => {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
-    if (!token || !chatId) return resolve(); // not configured
-
-    const body = JSON.stringify({ chat_id: chatId, text: message, parse_mode: "HTML" });
+function sendToChat(token, chatId, message) {
+  return new Promise((resolve) => {
+    const body = JSON.stringify({ chat_id: chatId.trim(), text: message, parse_mode: "HTML" });
     const options = {
       hostname: "api.telegram.org",
       path: `/bot${token}/sendMessage`,
@@ -36,20 +32,29 @@ function sendTelegram(message) {
       res.on("data", (chunk) => { data += chunk; });
       res.on("end", () => {
         if (res.statusCode !== 200) {
-          console.error("[NOTIFIER] Telegram API error:", res.statusCode, data);
+          console.error(`[NOTIFIER] Telegram API error (${chatId.trim()}):`, res.statusCode, data);
         } else {
-          console.log("[NOTIFIER] Telegram sent OK");
+          console.log(`[NOTIFIER] Telegram sent OK to ${chatId.trim()}`);
         }
         resolve();
       });
     });
     req.on("error", (err) => {
-      console.error("[NOTIFIER] Telegram error:", err.message);
+      console.error(`[NOTIFIER] Telegram error (${chatId.trim()}):`, err.message);
       resolve();
     });
     req.write(body);
     req.end();
   });
+}
+
+function sendTelegram(message) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatIds = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatIds) return Promise.resolve();
+
+  const ids = chatIds.split(",").filter(Boolean);
+  return Promise.all(ids.map((id) => sendToChat(token, id, message)));
 }
 
 // ── Email ────────────────────────────────────────────────────────────────────
