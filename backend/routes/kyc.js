@@ -2,6 +2,9 @@ const express = require("express");
 const router = express.Router();
 const { protect } = require("../lib/auth");
 const { createDocument, getDocument, updateDocument, queryDocuments } = require("../lib/firebase-admin");
+const { BVNVerifier } = require("../lib/nin-verifier");
+
+const bvnVerifier = new BVNVerifier();
 
 /**
  * @route   GET /api/kyc/status
@@ -11,30 +14,33 @@ const { createDocument, getDocument, updateDocument, queryDocuments } = require(
 router.get("/status", protect, async (req, res) => {
   try {
     const { uid } = req.user;
-    
-    // Query KYC record for user
+
     const kycRecords = await queryDocuments("kycVerifications", "userId", "==", uid);
-    
+
     if (kycRecords.length === 0) {
-      // No KYC record exists
       return res.json({
         status: "not_started",
         emailVerified: req.user.email_verified || false,
         submittedAt: null,
         reviewedAt: null,
-        message: "KYC verification not started"
+        message: "KYC verification not started",
+        bvnVerified: false,
       });
     }
 
     const kycRecord = kycRecords[0];
-    
+
     res.json({
       status: kycRecord.status || "pending",
       emailVerified: req.user.email_verified || false,
       submittedAt: kycRecord.submittedAt,
       reviewedAt: kycRecord.reviewedAt,
       message: kycRecord.message || null,
-      documents: kycRecord.documents ? kycRecord.documents.map(d => d.type) : []
+      bvnVerified: kycRecord.bvnVerified || false,
+      verifiedName: kycRecord.bvnVerified ? {
+        firstName: kycRecord.bvnFirstName,
+        lastName: kycRecord.bvnLastName,
+      } : null,
     });
   } catch (error) {
     console.error("Get KYC status error:", error);
@@ -43,28 +49,121 @@ router.get("/status", protect, async (req, res) => {
 });
 
 /**
+ * @route   POST /api/kyc/verify-bvn
+ * @desc    Verify user's BVN (Bank Verification Number) via Paystack.
+ *          On success, auto-approves KYC and stores verified identity data.
+ * @access  Private
+ */
+router.post("/verify-bvn", protect, async (req, res) => {
+  try {
+    const { uid, email } = req.user;
+    const { bvn } = req.body;
+
+    if (!bvn) {
+      return res.status(400).json({ error: "BVN is required" });
+    }
+
+    if (!/^\d{11}$/.test(bvn)) {
+      return res.status(400).json({ error: "BVN must be exactly 11 digits" });
+    }
+
+    // Check if user already has approved KYC
+    const existingRecords = await queryDocuments("kycVerifications", "userId", "==", uid);
+    if (existingRecords.length > 0 && existingRecords[0].status === "approved") {
+      return res.status(400).json({ error: "KYC already approved" });
+    }
+
+    // Verify BVN via Paystack
+    const result = await bvnVerifier.verifyBVN(bvn);
+
+    if (!result.verified) {
+      const failData = {
+        userId: uid,
+        email,
+        bvnMasked: bvn.substring(0, 3) + "****" + bvn.substring(7),
+        status: "rejected",
+        bvnVerified: false,
+        message: result.message || "BVN verification failed",
+        submittedAt: new Date().toISOString(),
+        reviewedAt: new Date().toISOString(),
+      };
+
+      if (existingRecords.length > 0) {
+        await updateDocument("kycVerifications", existingRecords[0].id, failData);
+      } else {
+        await createDocument("kycVerifications", failData);
+      }
+
+      return res.status(400).json({
+        verified: false,
+        message: result.message || "BVN verification failed. Please check your BVN and try again.",
+      });
+    }
+
+    // BVN verified — auto-approve KYC
+    const kycData = {
+      userId: uid,
+      email,
+      fullName: `${result.data.firstName} ${result.data.middleName ? result.data.middleName + " " : ""}${result.data.lastName}`.trim(),
+      bvnFirstName: result.data.firstName,
+      bvnLastName: result.data.lastName,
+      bvnMiddleName: result.data.middleName || "",
+      dateOfBirth: result.data.dateOfBirth || "",
+      country: "Nigeria",
+      documentType: "BVN",
+      bvnVerified: true,
+      status: "approved",
+      submittedAt: new Date().toISOString(),
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: "system_bvn_verification",
+    };
+
+    let kycId;
+    if (existingRecords.length > 0) {
+      kycId = existingRecords[0].id;
+      await updateDocument("kycVerifications", kycId, kycData);
+    } else {
+      kycId = await createDocument("kycVerifications", kycData);
+    }
+
+    res.json({
+      verified: true,
+      kycId,
+      status: "approved",
+      message: "BVN verified successfully! Your KYC is now approved.",
+      verifiedName: {
+        firstName: result.data.firstName,
+        lastName: result.data.lastName,
+      },
+    });
+  } catch (error) {
+    console.error("BVN verification error:", error);
+    res.status(500).json({ error: error.message || "BVN verification failed. Please try again later." });
+  }
+});
+
+/**
  * @route   POST /api/kyc/submit
- * @desc    Submit KYC verification documents
+ * @desc    Submit KYC verification documents (legacy manual flow).
  * @access  Private
  */
 router.post("/submit", protect, async (req, res) => {
   try {
     const { uid, email } = req.user;
-    const { 
-      fullName, 
-      dateOfBirth, 
-      country, 
+    const {
+      fullName,
+      dateOfBirth,
+      country,
       documentType,
-      documentNumber 
+      documentNumber
     } = req.body;
 
     if (!fullName || !dateOfBirth || !country || !documentType || !documentNumber) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Check if user already has a KYC record
     const existingRecords = await queryDocuments("kycVerifications", "userId", "==", uid);
-    
+
     if (existingRecords.length > 0 && existingRecords[0].status === "approved") {
       return res.status(400).json({ error: "KYC already approved" });
     }
@@ -81,16 +180,13 @@ router.post("/submit", protect, async (req, res) => {
       submittedAt: new Date().toISOString(),
       reviewedAt: null,
       reviewedBy: null,
-      documents: [], // In production, this would include uploaded document URLs
     };
 
     let kycId;
     if (existingRecords.length > 0) {
-      // Update existing record
       kycId = existingRecords[0].id;
       await updateDocument("kycVerifications", kycId, kycData);
     } else {
-      // Create new record
       kycId = await createDocument("kycVerifications", kycData);
     }
 
@@ -113,24 +209,23 @@ router.post("/submit", protect, async (req, res) => {
 router.get("/limits", protect, async (req, res) => {
   try {
     const { uid } = req.user;
-    
-    // Get KYC status
+
     const kycRecords = await queryDocuments("kycVerifications", "userId", "==", uid);
     const isVerified = kycRecords.length > 0 && kycRecords[0].status === "approved";
 
     const limits = {
       verified: isVerified,
       daily: {
-        onramp: isVerified ? 50000 : 10000,  // NGN
-        offramp: isVerified ? 50000 : 10000, // NGN
+        onramp: isVerified ? 50000 : 10000,
+        offramp: isVerified ? 50000 : 10000,
       },
       monthly: {
-        onramp: isVerified ? 1000000 : 100000,  // NGN
-        offramp: isVerified ? 1000000 : 100000, // NGN
+        onramp: isVerified ? 1000000 : 100000,
+        offramp: isVerified ? 1000000 : 100000,
       },
       perTransaction: {
-        min: 1000,  // NGN
-        max: isVerified ? 100000 : 20000, // NGN
+        min: 1000,
+        max: isVerified ? 100000 : 20000,
       }
     };
 
