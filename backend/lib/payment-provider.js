@@ -133,7 +133,8 @@ class PaymentProvider {
       };
     } catch (error) {
       console.error("[PAYSTACK] Create recipient error:", error.response?.data || error.message);
-      throw new Error("Failed to create transfer recipient.");
+      const detail = error.response?.data?.message || error.message;
+      throw new Error(`Failed to create transfer recipient: ${detail}`);
     }
   }
 
@@ -159,7 +160,8 @@ class PaymentProvider {
       };
     } catch (error) {
       console.error("[PAYSTACK] Initiate transfer error:", error.response?.data || error.message);
-      throw new Error("Failed to initiate payout transfer.");
+      const detail = error.response?.data?.message || error.message;
+      throw new Error(`Failed to initiate payout transfer: ${detail}`);
     }
   }
 }

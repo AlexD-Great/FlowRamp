@@ -240,7 +240,7 @@ router.post("/reject-onramp/:sessionId", adminOnly, async (req, res) => {
 router.post("/approve-offramp/:requestId", adminOnly, async (req, res) => {
   try {
     const { requestId } = req.params;
-    const { ngnSent, paymentReference, adminNote, autoTransfer = true } = req.body;
+    const { ngnSent, paymentReference, adminNote, autoTransfer = false } = req.body;
     const request = await getDocument("offRampRequests", requestId);
 
     if (!request) {

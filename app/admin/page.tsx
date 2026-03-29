@@ -272,7 +272,7 @@ function OffRampCard({
   onReject,
 }: {
   request: OffRampRequest
-  onApprove: (id: string, ngnSent: string, paymentRef: string, note: string) => Promise<void>
+  onApprove: (id: string, ngnSent: string, paymentRef: string, note: string, autoTransfer: boolean) => Promise<void>
   onReject: (id: string, reason: string) => Promise<void>
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -282,11 +282,13 @@ function OffRampCard({
   const [rejectReason, setRejectReason] = useState("")
   const [showReject, setShowReject] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [autoTransfer, setAutoTransfer] = useState(true)
 
   const handleApprove = async () => {
-    if (!paymentRef.trim() && !ngnSent.trim()) { toast.error("Enter the payment reference or NGN sent amount"); return }
+    if (!ngnSent.trim()) { toast.error("Enter the NGN amount"); return }
+    if (!autoTransfer && !paymentRef.trim()) { toast.error("Enter the payment reference"); return }
     setIsSubmitting(true)
-    await onApprove(request.id, ngnSent, paymentRef, adminNote)
+    await onApprove(request.id, ngnSent, autoTransfer ? "" : paymentRef, adminNote, autoTransfer)
     setIsSubmitting(false)
   }
 
@@ -379,10 +381,39 @@ function OffRampCard({
           {/* Approve form */}
           {!showReject && (
             <div className="space-y-3 border rounded-lg p-4 bg-green-50/50">
-              <p className="text-sm font-semibold text-green-800">✅ Approve — Confirm NGN Sent</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-green-800">✅ Approve — Send NGN</p>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <span className="text-xs text-muted-foreground">Auto-transfer</span>
+                  <div
+                    className={`relative w-10 h-5 rounded-full transition-colors ${autoTransfer ? "bg-green-500" : "bg-gray-300"}`}
+                    onClick={() => setAutoTransfer(!autoTransfer)}
+                  >
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${autoTransfer ? "translate-x-5" : "translate-x-0.5"}`} />
+                  </div>
+                </label>
+              </div>
+
+              {autoTransfer ? (
+                <div className="bg-green-100 border border-green-300 rounded p-3 text-xs text-green-800">
+                  <strong>Auto mode:</strong> Clicking approve will automatically send ₦{parseFloat(ngnSent || "0").toLocaleString()} to {request.payoutDetails?.account_name} ({request.payoutDetails?.bank_name}) via Paystack Transfer.
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Payment Reference <span className="text-red-500">*</span></Label>
+                  <Input
+                    placeholder="Bank transfer ref..."
+                    value={paymentRef}
+                    onChange={e => setPaymentRef(e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                  <p className="text-xs text-muted-foreground">Enter the reference after manually sending NGN to the user's bank.</p>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">NGN Sent</Label>
+                  <Label className="text-xs">NGN to Send</Label>
                   <div className="relative">
                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₦</span>
                     <Input
@@ -394,22 +425,14 @@ function OffRampCard({
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Payment Reference</Label>
-                  <Input
-                    placeholder="Bank transfer ref..."
-                    value={paymentRef}
-                    onChange={e => setPaymentRef(e.target.value)}
-                  />
+                  <Label className="text-xs">Admin Note (optional)</Label>
+                  <Input placeholder="Internal note" value={adminNote} onChange={e => setAdminNote(e.target.value)} />
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Admin Note (optional)</Label>
-                <Input placeholder="Internal note" value={adminNote} onChange={e => setAdminNote(e.target.value)} />
               </div>
               <div className="flex gap-2">
                 <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={handleApprove} disabled={isSubmitting}>
                   <CheckCircle2 className="h-4 w-4 mr-1" />
-                  {isSubmitting ? "Processing..." : "Mark as Completed"}
+                  {isSubmitting ? (autoTransfer ? "Sending NGN..." : "Processing...") : (autoTransfer ? "Send NGN & Complete" : "Mark as Completed")}
                 </Button>
                 <Button variant="outline" className="text-red-600 border-red-300" onClick={() => setShowReject(true)}>
                   Reject
@@ -505,13 +528,13 @@ export default function AdminPage() {
     }
   }
 
-  const handleApproveOffRamp = async (requestId: string, ngnSent: string, paymentRef: string, adminNote: string) => {
+  const handleApproveOffRamp = async (requestId: string, ngnSent: string, paymentRef: string, adminNote: string, autoTransfer: boolean = true) => {
     try {
       const headers = await getAuthHeaders()
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/approve-offramp/${requestId}`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ ngnSent: parseFloat(ngnSent), paymentReference: paymentRef, adminNote }),
+        body: JSON.stringify({ ngnSent: parseFloat(ngnSent), paymentReference: paymentRef, adminNote, autoTransfer }),
       })
       if (res.ok) {
         toast.success("Off-ramp approved and marked as completed")
