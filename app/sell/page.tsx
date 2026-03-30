@@ -511,7 +511,7 @@ export default function SellPage() {
                           className="mb-2"
                         />
                         {bankSearchQuery && filteredBanks.length > 0 && !selectedBankCode && (
-                          <div className="max-h-40 overflow-y-auto border rounded-lg bg-white">
+                          <div className="max-h-40 overflow-y-auto border rounded-lg bg-card text-card-foreground">
                             {filteredBanks.slice(0, 10).map(bank => (
                               <button
                                 key={bank.code}
@@ -595,7 +595,7 @@ export default function SellPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="bg-white rounded-lg p-4 border">
+                <div className="bg-card text-card-foreground rounded-lg p-4 border">
                   <p className="text-xs text-muted-foreground mb-1">FlowRamp Receiving Wallet</p>
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-mono text-sm font-bold break-all">{adminFlowAddress}</p>
